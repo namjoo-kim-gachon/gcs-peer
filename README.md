@@ -1,98 +1,50 @@
-# React + TypeScript + Vite + Supabase
+# GCS Peer 웹앱
 
-This project is a Vite + React + TS app with Supabase client pre-wired.
+GCS Peer는 React와 Supabase를 기반으로 한 웹 애플리케이션입니다. 이 프로젝트는 사용자 인증, 세션 관리 및 평가 기능을 제공하는 것을 목표로 합니다.
 
-## Setup
+## 기술 스택
 
-1. Copy env file and fill values from your Supabase project settings:
+- React (TypeScript)
+- Next.js
+- Supabase
+- Vercel
+- ESLint
+- Prettier
 
-```bash
-cp .env.example .env
-# then edit .env and set VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
-```
+## 설치 방법
 
-1. Start dev server:
+1. 이 저장소를 클론합니다.
+   ```
+   git clone <repository-url>
+   ```
 
-```bash
-npm run dev
-```
+2. 프로젝트 디렉토리로 이동합니다.
+   ```
+   cd gcs-peer
+   ```
 
-## Supabase client
+3. 의존성을 설치합니다.
+   ```
+   npm install
+   ```
 
-Use the client from `src/supabaseClient.ts`:
+4. 개발 서버를 시작합니다.
+   ```
+   npm run dev
+   ```
 
-```ts
-import { supabase } from "./supabaseClient";
+5. 브라우저에서 `http://localhost:3000`에 접속하여 애플리케이션을 확인합니다.
 
-async function load() {
-  const { data, error } = await supabase.from("your_table").select("*");
-  if (error) console.error(error);
-  else console.log(data);
-}
-```
+## 주요 기능
 
-Currently, two official plugins are available:
+- **회원 로그인**: Supabase Auth를 사용하여 구글 계정으로 로그인합니다.
+- **세션 관리**: 피어 평가를 위한 세션 관리 UI 제공.
+- **학생 화면**: 평가 기능을 제공하는 간단한 페이지.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 기여 방법
 
-## Expanding the ESLint configuration
+기여를 원하시는 분은 이 저장소를 포크한 후, 변경 사항을 커밋하고 풀 리퀘스트를 제출해 주세요.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 라이센스
 
-```js
-export default tseslint.config([
-  globalIgnores(["dist"]),
-  {
-    files: ["**/*.{ts,tsx}"],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ["./tsconfig.node.json", "./tsconfig.app.json"],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-]);
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from "eslint-plugin-react-x";
-import reactDom from "eslint-plugin-react-dom";
-
-export default tseslint.config([
-  globalIgnores(["dist"]),
-  {
-    files: ["**/*.{ts,tsx}"],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs["recommended-typescript"],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ["./tsconfig.node.json", "./tsconfig.app.json"],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-]);
-```
+이 프로젝트는 MIT 라이센스 하에 배포됩니다.
