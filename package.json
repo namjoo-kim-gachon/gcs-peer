@@ -19,17 +19,21 @@
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
-    "@supabase/supabase-js": "latest",
+    "@supabase/supabase-js": "^2.55.0",
     "next": "latest",
+    "openai": "^5.12.2",
     "react": "latest",
-    "react-dom": "latest"
+    "react-dom": "latest",
+    "swr": "^2.3.6"
   },
   "devDependencies": {
+    "@playwright/test": "^1.54.2",
     "@types/react": "19.1.10",
     "eslint": "latest",
     "eslint-config-prettier": "latest",
     "eslint-plugin-prettier": "latest",
+    "playwright": "^1.54.2",
     "prettier": "latest",
-    "typescript": "latest"
+    "typescript": "^5.9.2"
   }
 }

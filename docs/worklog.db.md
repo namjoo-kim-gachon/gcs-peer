@@ -4,25 +4,17 @@
 
 ### allowed_users
 
-- id (bigint, PK)
+- name (text, PK)
 - email (text, unique)
-- name (text)
 - is_faculty (boolean)
 - description (text)
 - created_at (timestamp with time zone)
 
-### teams
-
-- id (bigint, PK)
-- session_id (bigint)
-- name (text)
-- added_at (timestamp with time zone)
-
 ### team_members
 
-- team_id (bigint)
-- user_id (bigint)
-- added_at (timestamp with time zone)
+session_id (bigint, PK)
+team_name (text, PK)
+user_name (text, PK)
 
 ### sessions
 
@@ -71,9 +63,8 @@
 
 ### 주요 관계
 
-- team_members.team_id → teams.id (FK)
-- team_members.user_id → allowed_users.id (FK)
-- teams.session_id → sessions.id (FK)
+team_members.session_id → sessions.id (FK)
+team_members.user_name → allowed_users.name (FK)
 
 - auth.users.id는 여러 인증 관련 테이블의 FK로 사용됨
 
