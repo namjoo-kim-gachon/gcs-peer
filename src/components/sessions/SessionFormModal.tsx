@@ -18,6 +18,8 @@ const SessionFormModal: React.FC<SessionFormModalProps> = ({
   const [description, setDescription] = useState(initial?.description || '');
   const [error, setError] = useState('');
   const [teamText, setTeamText] = useState('');
+  const [lastCheckedTeamText, setLastCheckedTeamText] = useState('');
+  const [checkingTeam, setCheckingTeam] = useState(false);
   const [warning, setWarning] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [availableUsers, setAvailableUsers] = useState<string[]>([]);
@@ -93,27 +95,34 @@ const SessionFormModal: React.FC<SessionFormModalProps> = ({
       return;
     }
     try {
-      // 1. 팀구성 텍스트와 사용자 목록을 파싱 API로 전달
-      const parseRes = await fetch('/api/teams/parse', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: teamText,
-          available_users: availableUsers,
-        }),
-      });
-      const parseJson = await parseRes.json();
-      console.log('팀 파싱 결과:', parseJson);
-      if (parseJson.warnings && parseJson.warnings.length > 0) {
-        // 워닝 카드에 에러 표시 후 종료
-        setWarning(parseJson.warnings.join('\n'));
-        return;
+      let teams = undefined;
+      // db에서 불러온 팀구성과 현재 입력값이 다를 때만 파싱 API 호출
+      if (teamText !== dbTeamText) {
+        setCheckingTeam(true);
+        const parseRes = await fetch('/api/teams/parse', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: teamText,
+            available_users: availableUsers,
+          }),
+        });
+        const parseJson = await parseRes.json();
+        setCheckingTeam(false);
+        setLastCheckedTeamText(teamText);
+        console.log('팀 파싱 결과:', parseJson);
+        if (parseJson.warnings && parseJson.warnings.length > 0) {
+          setWarning(parseJson.warnings.join('\n'));
+          return;
+        }
+        teams = parseJson.teams;
       }
       // 성공 처리 (예: UI 갱신, 모달 닫기 등)
-      onSubmit({ name, description, teams: parseJson.teams });
+      onSubmit({ name, description, teams });
       // 입력값 초기화는 모달이 닫힐 때만 수행
     } catch (err) {
       setWarning('처리 중 오류 발생: ' + String(err));
+      setCheckingTeam(false);
     } finally {
       setLoading(false);
     }
@@ -147,6 +156,29 @@ const SessionFormModal: React.FC<SessionFormModalProps> = ({
       >
         <h2>세션 {initial ? '수정' : '생성'}</h2>
         <div style={{ marginBottom: 12 }}>
+          {checkingTeam && (
+            <div style={{ textAlign: 'center', marginBottom: 8 }}>
+              <span
+                className="spinner"
+                style={{
+                  display: 'inline-block',
+                  width: 24,
+                  height: 24,
+                  border: '3px solid #1976d2',
+                  borderTop: '3px solid #fff',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                }}
+              ></span>
+              <span style={{ marginLeft: 8 }}>팀 구성 체크 중...</span>
+              <style>{`
+                @keyframes spin {
+                  0% { transform: rotate(0deg); }
+                  100% { transform: rotate(360deg); }
+                }
+              `}</style>
+            </div>
+          )}
           <label
             htmlFor="session-name"
             style={{ display: 'block', fontWeight: 'bold', marginBottom: 4 }}
