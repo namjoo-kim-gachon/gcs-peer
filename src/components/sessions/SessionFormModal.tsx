@@ -4,7 +4,7 @@ import { Session } from '../../types';
 interface SessionFormModalProps {
   open: boolean;
   initial?: Partial<Session>;
-  onSubmit: (data: { name: string; description?: string }) => void;
+  onSubmit: (data: { name: string; description?: string; teams?: any }) => void;
   onClose: () => void;
 }
 
@@ -109,23 +109,8 @@ const SessionFormModal: React.FC<SessionFormModalProps> = ({
         setWarning(parseJson.warnings.join('\n'));
         return;
       }
-      // 2. 파싱 결과를 DB 반영 API로 전달
-      const updateRes = await fetch('/api/teams/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: initial?.id,
-          teams: parseJson.teams,
-        }),
-      });
-      const updateJson = await updateRes.json();
-      console.log('팀 파싱 결과:', parseJson);
-      if (updateRes.status !== 200) {
-        setWarning(updateJson.error || 'DB 반영 실패');
-        return;
-      }
       // 성공 처리 (예: UI 갱신, 모달 닫기 등)
-      onSubmit({ name, description });
+      onSubmit({ name, description, teams: parseJson.teams });
       // 입력값 초기화는 모달이 닫힐 때만 수행
     } catch (err) {
       setWarning('처리 중 오류 발생: ' + String(err));

@@ -32,33 +32,55 @@ const SessionsPage: React.FC = () => {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [actionError, setActionError] = useState('');
 
-  const handleCreateOrEdit = async (values: {
+  interface SessionFormValues {
     name: string;
     description?: string;
-  }) => {
+    teams?: any;
+  }
+  const handleCreateOrEdit = async (values: SessionFormValues) => {
+    console.log('폼 입력값:', values);
     try {
+      let sessionId = editSession?.id;
+      // 세션 저장
       if (editSession) {
         const { error } = await supabase
           .from('sessions')
-          .update(values)
+          .update({ name: values.name, description: values.description })
           .eq('id', editSession.id);
         if (error) throw error;
+        sessionId = editSession.id;
         setEditSession(null);
       } else {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('sessions')
-          .insert(values)
+          .insert({ name: values.name, description: values.description })
           .select()
           .single();
         if (error) throw error;
+        sessionId = data?.id;
         setFormOpen(false);
+      }
+      // 팀 정보가 있으면 DB 반영
+      if (values.teams && sessionId) {
+        const updateRes = await fetch('/api/teams/update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId,
+            teams: values.teams,
+          }),
+        });
+        const updateJson = await updateRes.json();
+        console.log('팀 업데이트 결과:', updateJson);
+        if (updateRes.status !== 200) {
+          throw new Error(updateJson.error || '팀 DB 반영 실패');
+        }
       }
       mutate();
     } catch (e: any) {
       setActionError(e.message);
     }
   };
-
   const handleDelete = async () => {
     if (!deleteId) return;
     try {
