@@ -18,7 +18,9 @@ export default async function handler(
   const { data: teamMembers, error: teamMembersError } = await supabase
     .from('team_members')
     .select('team_name, user_name')
-    .eq('session_id', sessionId);
+    .eq('session_id', sessionId)
+    .order('team_name', { ascending: true })
+    .order('user_name', { ascending: true });
 
   if (teamMembersError) {
     return res.status(500).json({ error: teamMembersError.message });
