@@ -71,14 +71,14 @@ async function parseTeamText(text: string, availableUsers: string[]) {
   for (const team of teams) {
     teamNames.push(team.name);
     if (!Array.isArray(team.members) || team.members.length < 2) {
-      warnings.push(`팀 "${team.name}"의 팀원 수가 2명 미만입니다.`);
+      warnings.push(`"${team.name}"의 팀원이 2명 미만입니다.`);
     }
     for (const member of team.members) {
       allMemberNames.push(member.name);
       // 이름이 available_users에 있는가?
       if (!availableUsers.includes(member.name)) {
         warnings.push(
-          `팀 "${team.name}"의 팀원 "${member.name}"은 allowed_users에 등록되어 있지 않습니다.`,
+          `"${team.name}"의 "${member.name}"은 등록되지 않은 이름입니다.`,
         );
       }
       // 한 사람이 여러 팀에 중복 소속되어 있는가?
@@ -90,7 +90,7 @@ async function parseTeamText(text: string, availableUsers: string[]) {
   const teamNameSet = new Set();
   for (const name of teamNames) {
     if (teamNameSet.has(name)) {
-      warnings.push(`팀 이름 "${name}"이 중복됩니다.`);
+      warnings.push(`"${name}"은 중복된 팀 이름 됩니다.`);
     }
     teamNameSet.add(name);
   }
@@ -98,7 +98,7 @@ async function parseTeamText(text: string, availableUsers: string[]) {
   for (const name in memberTeamMap) {
     if (memberTeamMap[name].length > 1) {
       warnings.push(
-        `팀원 "${name}"이 여러 팀에 중복 소속되어 있습니다: ${memberTeamMap[name].join(', ')}`,
+        `"${name}"이 여러 팀에 중복 소속되어 있습니다: ${memberTeamMap[name].join(', ')}`,
       );
     }
   }
@@ -108,7 +108,7 @@ async function parseTeamText(text: string, availableUsers: string[]) {
     for (const member of team.members) {
       if (memberSet.has(member.name)) {
         warnings.push(
-          `팀 "${team.name}" 내에 팀원 "${member.name}"이 중복됩니다.`,
+          `"${team.name}"에 "${member.name}"이 중복 소속 되어 있습니다.`,
         );
       }
       memberSet.add(member.name);

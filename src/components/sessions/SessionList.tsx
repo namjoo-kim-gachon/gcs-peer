@@ -15,25 +15,32 @@ const SessionList: React.FC<SessionListProps> = ({
   onEdit,
   onDelete,
 }) => (
-  <ul
-    style={{
-      listStyle: 'none',
-      padding: 0,
-      margin: 0,
-      width: '100%',
-      display: 'block',
-    }}
-  >
-    {sessions.map((session) => (
-      <SessionItem
-        key={session.id}
-        session={session}
-        onClick={() => onSelect(String(session.id))}
-        onEdit={onEdit ? () => onEdit(session) : undefined}
-        onDelete={onDelete ? () => onDelete(session) : undefined}
-      />
-    ))}
-  </ul>
+  <div style={{ padding: '8px 16px' }}>
+    <ul
+      style={{
+        listStyle: 'none',
+        padding: 0,
+        margin: 0,
+        width: '100%',
+        display: 'block',
+        border: '1px solid #e3eafc',
+        borderRadius: 16,
+        background: '#fff',
+        boxShadow: '0 4px 24px rgba(25, 118, 210, 0.08)',
+        overflow: 'hidden',
+      }}
+    >
+      {sessions.map((session) => (
+        <SessionItem
+          key={session.id}
+          session={session}
+          onClick={() => onSelect(String(session.id))}
+          onEdit={onEdit ? () => onEdit(session) : undefined}
+          onDelete={onDelete ? () => onDelete(session) : undefined}
+        />
+      ))}
+    </ul>
+  </div>
 );
 
 export default SessionList;

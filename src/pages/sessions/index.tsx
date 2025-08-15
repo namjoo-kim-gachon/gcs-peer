@@ -11,6 +11,7 @@ import Spinner from '../../components/common/Spinner';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import SessionList from '../../components/sessions/SessionList';
 import SessionFormModal from '../../components/sessions/SessionFormModal';
+import { FaPlus } from 'react-icons/fa';
 
 const fetchSessions = async () => {
   const { data, error } = await supabase
@@ -62,8 +63,8 @@ const SessionsPage: React.FC = () => {
           .single();
         if (error) throw error;
         sessionId = data?.id;
-        setFormOpen(false);
       }
+      setFormOpen(false); // 성공 시 모달 닫기
       // 팀 정보가 있으면 DB 반영
       if (values.teams && sessionId) {
         const updateRes = await fetch('/api/teams/update', {
@@ -115,29 +116,54 @@ const SessionsPage: React.FC = () => {
   if (!user || !user.isFaculty) return null;
 
   return (
-    <div style={{ maxWidth: 600, margin: '0 auto', padding: 24 }}>
-      <PageHeader title="세션 목록">
-        <button onClick={() => setFormOpen(true)} style={{ float: 'right' }}>
-          + 세션 생성
+    <div style={{ maxWidth: 800, margin: '0 auto', padding: '24px 16px' }}>
+      <PageHeader title="세션 리스트">
+        <button
+          onClick={() => {
+            setEditSession(null);
+            setFormOpen(true);
+          }}
+          style={{
+            background: '#1976d2',
+            color: 'white',
+            border: 'none',
+            borderRadius: '50%',
+            width: 48,
+            height: 48,
+            fontSize: 20,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 4px 12px rgba(25, 118, 210, 0.25)',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+          }}
+        >
+          <FaPlus />
         </button>
       </PageHeader>
       {actionError && <ErrorBanner error={actionError} />}
       {isLoading ? (
-        <Spinner />
+        <div style={{ textAlign: 'center', padding: 40 }}>
+          <Spinner />
+        </div>
       ) : error ? (
         <ErrorBanner error={error.message} />
       ) : sessions && sessions.length > 0 ? (
         <SessionList
           sessions={sessions}
           onSelect={() => {}}
-          onEdit={(session) => setEditSession(session)}
+          onEdit={(session) => {
+            setEditSession(session);
+            setFormOpen(true);
+          }}
           onDelete={(session) => setDeleteId(session.id)}
         />
       ) : (
-        <EmptyState message="세션이 없습니다." />
+        <EmptyState message="세션이 없습니다. 우측 상단 버튼을 눌러 생성하세요." />
       )}
       <SessionFormModal
-        open={formOpen || !!editSession}
+        open={formOpen}
         initial={editSession || undefined}
         onSubmit={handleCreateOrEdit}
         onClose={() => {
@@ -148,7 +174,7 @@ const SessionsPage: React.FC = () => {
       <ConfirmDialog
         open={!!deleteId}
         title="세션 삭제"
-        description="정말 삭제하시겠습니까?"
+        description="해당 세션 및 관련 팀, 리뷰 데이터가 모두 삭제됩니다. 정말 삭제하시겠습니까?"
         onConfirm={handleDelete}
         onCancel={() => setDeleteId(null)}
       />

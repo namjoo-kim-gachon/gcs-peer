@@ -5,8 +5,8 @@ const Spinner: React.FC = () => (
     <div
       className="spinner"
       style={{
-        width: 32,
-        height: 32,
+        width: 24,
+        height: 24,
         border: '4px solid #eee',
         borderTop: '4px solid #888',
         borderRadius: '50%',
