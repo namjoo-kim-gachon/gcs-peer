@@ -52,7 +52,6 @@ const VotePage = () => {
     fetchMyName();
   }, [user]);
 
-  // 세션 정보 및 팀원 목록 조회
   // 세션 정보 및 팀원 목록 조회 함수 분리
   const fetchSessionAndTeam = async () => {
     setLoading(true);
@@ -72,12 +71,12 @@ const VotePage = () => {
         setSessionStatus(null);
       }
       // 팀원 목록 조회
-      const res = await fetch(`/api/sessions/teams?sessionId=${sessionId}`);
-      if (!res.ok) throw new Error('팀원 정보 조회 실패');
-      const data = await res.json();
-      setTeamMembers(data);
+      const teamRes = await fetch(`/api/sessions/teams?sessionId=${sessionId}`);
+      if (!teamRes.ok) throw new Error('팀원 정보 조회 실패');
+      const teamData = await teamRes.json();
+      setTeamMembers(teamData);
       // 내 팀 찾기
-      const team = data.find((t: TeamMember) =>
+      const team = teamData.find((t: TeamMember) =>
         t.members.includes(myName ?? ''),
       );
       setMyTeam(team || null);
@@ -93,7 +92,6 @@ const VotePage = () => {
         });
         // 프리필 리뷰가 없을 때만 초기값 적용
         setContribRates((prev) => {
-          // prev가 모두 0이거나 undefined일 때만 초기값 적용
           const isEmpty =
             !prev ||
             team.members.every((m: string) => !prev[m] || prev[m] === 0);
@@ -122,16 +120,16 @@ const VotePage = () => {
   // 폴링: 5초마다 status 자동 갱신
   useEffect(() => {
     if (!sessionId || !myName) return;
-    // 투표 가능 상태 또는 제출 완료 상태에서는 폴링 즉시 중단
-    if (sessionStatus === 1 || submitSuccess) {
+    // 투표 가능(열림) 상태면 폴링 중단, 투표 불가(닫힘) 상태면 폴링 유지
+    if (sessionStatus === 1) {
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
         pollIntervalRef.current = null;
       }
       return;
     }
-    // 투표 불가 상태에서만 폴링 시작
-    if (sessionStatus !== 1 && !submitSuccess) {
+    // sessionStatus !== 1 인 동안에는 계속 폴링 (제출 여부와 무관)
+    if (sessionStatus !== 1) {
       if (!pollIntervalRef.current) {
         pollIntervalRef.current = setInterval(() => {
           fetchSessionAndTeam();
@@ -145,7 +143,7 @@ const VotePage = () => {
         pollIntervalRef.current = null;
       }
     };
-  }, [sessionId, myName, sessionStatus, submitSuccess]);
+  }, [sessionId, myName, sessionStatus]);
 
   // Day 2: 기존 리뷰 프리필
   useEffect(() => {
@@ -160,11 +158,11 @@ const VotePage = () => {
           body: JSON.stringify({ sessionId, user_name: myName }),
         });
         if (!res.ok) return;
-        const data = await res.json();
+        const reviewData = await res.json();
         // 프리필: 팀원 이름 기준으로만 세팅
         const rates: { [name: string]: number } = {};
         const fits: { [name: string]: boolean } = {};
-        data.forEach((entry: any) => {
+        reviewData.forEach((entry: any) => {
           if (myTeam && myTeam.members.includes(entry.peer_name)) {
             rates[entry.peer_name] = entry.contrib_rate ?? 0;
             if (typeof entry.is_fit === 'boolean')
@@ -174,8 +172,11 @@ const VotePage = () => {
         // 프리필 리뷰가 있으면만 덮어쓰기, 없으면 초기값 유지
         if (Object.keys(rates).length > 0) {
           setContribRates(rates);
+          setIsFits(fits);
+          setSubmitSuccess(true); // 최초 진입 시 제출 완료 모드로 시작
+        } else {
+          setSubmitSuccess(false);
         }
-        setIsFits(fits);
       } catch {}
     }
     fetchMyReviews();
@@ -225,14 +226,14 @@ const VotePage = () => {
             setSubmitError(null);
             setSubmitSuccess(false);
             setIsSubmitting(false);
-            setSessionStatus(0); // 투표불가 상태로 전환
+            setSessionStatus(0); // 투표불가 상태로 전환 (서버가 닫힘을 응답)
           }, 1500);
           return;
         }
         throw new Error('제출 실패');
       }
+      // 성공: 현재 세션 상태 유지. 열려있으면 "제출 완료" 화면, 닫혀 있으면 "투표 불가" 화면.
       setSubmitSuccess(true);
-      setSessionStatus(0); // 투표불가 상태로 전환(제출 완료 메시지와 다시 투표 버튼 유지)
     } catch (e: any) {
       setSubmitError(e.message);
     } finally {
@@ -287,7 +288,7 @@ const VotePage = () => {
 
   return (
     <div style={cardStyle}>
-      <PageHeader title="Peer review" />
+      <PageHeader title="GCS - 피어 평가" />
       <div
         style={{
           display: 'flex',
@@ -339,7 +340,7 @@ const VotePage = () => {
               <span role="img" aria-label="lock" style={{ marginRight: 8 }}>
                 🔒
               </span>
-              {submitSuccess ? '제출 완료' : '투표 불가'}
+              투표가 종료되어 참여할 수 없습니다.
             </div>
             <div
               style={{
@@ -350,9 +351,84 @@ const VotePage = () => {
                 lineHeight: 1.5,
               }}
             >
-              {submitSuccess
-                ? '제출이 완료되었습니다. 다시 투표하려면 아래 버튼을 눌러주세요.'
-                : '지금은 투표할 수 없습니다. 투표가 시작되면 이 화면에서 참여할 수 있습니다.'}
+              투표가 종료되었습니다. 더 이상 제출할 수 없습니다.
+            </div>
+
+            <div
+              style={{
+                marginTop: 32,
+                display: 'flex',
+                justifyContent: 'center',
+              }}
+            >
+              <button
+                style={{
+                  padding: '10px 28px',
+                  fontSize: 16,
+                  fontWeight: 600,
+                  background: '#1976d2',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 8,
+                  boxShadow: '0 2px 8px rgba(25,118,210,0.08)',
+                  letterSpacing: 1,
+                  transition: 'background 0.2s',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  opacity: loading ? 0.7 : 1,
+                }}
+                onClick={fetchSessionAndTeam}
+                disabled={loading}
+              >
+                새로고침
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : submitSuccess ? (
+        <div
+          style={{
+            minHeight: '320px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <div
+            style={{
+              background: '#fff',
+              borderRadius: 16,
+              boxShadow: '0 4px 24px rgba(25, 118, 210, 0.08)',
+              border: '1px solid #e3eafc',
+              padding: '48px 32px',
+              maxWidth: 420,
+              textAlign: 'center',
+            }}
+          >
+            <div
+              style={{
+                fontSize: 38,
+                color: '#1976d2',
+                marginBottom: 18,
+                fontWeight: 700,
+                letterSpacing: 1,
+              }}
+            >
+              <span role="img" aria-label="lock" style={{ marginRight: 8 }}>
+                🔒
+              </span>
+              제출 완료
+            </div>
+            <div
+              style={{
+                fontSize: 20,
+                color: '#333',
+                marginBottom: 16,
+                fontWeight: 500,
+                lineHeight: 1.5,
+              }}
+            >
+              제출이 완료되었습니다. 다시 투표하려면 아래 버튼을 눌러주세요.
             </div>
             <div
               style={{
@@ -382,19 +458,12 @@ const VotePage = () => {
                   marginTop: 8,
                 }}
                 onClick={() => {
-                  if (submitSuccess) {
-                    setSessionStatus(1); // 다시 투표 화면으로 복귀
-                  } else {
-                    fetchSessionAndTeam();
-                  }
+                  setSubmitSuccess(false); // 다시 투표 화면으로 진입
+                  setSessionStatus(1); // 투표 가능 상태로 변경
                 }}
                 disabled={loading}
               >
-                {submitSuccess
-                  ? '다시 투표'
-                  : loading
-                    ? '새로고침 중...'
-                    : '새로고침'}
+                다시 투표
               </button>
             </div>
           </div>

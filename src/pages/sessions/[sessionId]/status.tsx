@@ -163,16 +163,6 @@ export default function SessionStatusPage() {
     setConfirmOpen(false);
   }
 
-  const copyLink = async () => {
-    if (!voteUrl) return;
-    try {
-      await navigator.clipboard.writeText(voteUrl);
-      alert('투표 링크가 복사되었습니다.');
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
   if (loading)
     return (
       <div style={{ padding: 24 }}>
@@ -254,9 +244,6 @@ export default function SessionStatusPage() {
           <div style={{ wordBreak: 'break-all', textAlign: 'center' }}>
             {voteUrl}
           </div>
-          <button onClick={copyLink} style={{ padding: '6px 10px' }}>
-            링크 복사
-          </button>
         </div>
 
         <div
