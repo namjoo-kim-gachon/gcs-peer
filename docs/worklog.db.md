@@ -23,12 +23,14 @@ user_name (text, PK)
 peer_name (text, PK)
 contrib_rate (double precision, NOT NULL)
 is_fit (boolean, nullable)
+created_at (timestamp with time zone)
 
 ### sessions
 
 - id (bigint, PK)
 - name (text)
 - description (text)
+- status (int, NOT NULL, default 0)
 - created_at (timestamp with time zone)
 
 ## auth.users 테이블
@@ -79,7 +81,3 @@ reviews.user_name → allowed_users.name (FK)
 reviews.peer_name → allowed_users.name (FK)
 
 - auth.users.id는 여러 인증 관련 테이블의 FK로 사용됨
-
----
-
-이 문서는 Supabase MCP를 통해 추출한 public 스키마와 auth.users 테이블의 구조를 요약한 것입니다.

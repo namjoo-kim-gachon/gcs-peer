@@ -22,7 +22,7 @@ export default async function handler(
 
   const { data, error } = await supabase
     .from('sessions')
-    .select('id, name, description')
+    .select('id, name, description, status')
     .eq('id', sessionId)
     .single();
 

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useRouter } from 'next/router';
 
 export interface SessionItemProps {
   session: {
@@ -18,6 +19,7 @@ const SessionItem: React.FC<SessionItemProps> = ({
   onEdit,
   onDelete,
 }) => {
+  const router = useRouter();
   return (
     <li>
       <div
@@ -65,6 +67,14 @@ const SessionItem: React.FC<SessionItemProps> = ({
             marginLeft: 'auto',
           }}
         >
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push(`/sessions/${session.id}/status`);
+            }}
+          >
+            플레이
+          </button>
           {onEdit && (
             <button
               style={{ marginRight: 8 }}

@@ -23,6 +23,21 @@ export default async function handler(
     return;
   }
 
+  // 세션 진행 상태 검증: sessions.status === 1(진행)인 경우에만 제출 허용
+  const { data: s, error: sErr } = await supabase
+    .from('sessions')
+    .select('status')
+    .eq('id', sessionId)
+    .single();
+  if (sErr) {
+    res.status(500).json({ error: sErr.message });
+    return;
+  }
+  if (!s || s.status !== 1) {
+    res.status(403).json({ error: '현재 투표가 진행 중이 아닙니다.' });
+    return;
+  }
+
   // upsert reviews
   const upsertData = entries.map((entry: any) => ({
     session_id: sessionId,
