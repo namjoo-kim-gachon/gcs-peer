@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 import useSWR from 'swr';
 import { supabase } from '../../utils/supabaseClient';
 import { Session } from '../../types';
+import useAuth from '../../hooks/useAuth';
 import PageHeader from '../../components/common/PageHeader';
 import EmptyState from '../../components/common/EmptyState';
 import ErrorBanner from '../../components/common/ErrorBanner';
@@ -21,6 +23,8 @@ const fetchSessions = async () => {
 };
 
 const SessionsPage: React.FC = () => {
+  const { user, loading, error: authError } = useAuth();
+  const router = useRouter();
   const {
     data: sessions,
     error,
@@ -95,6 +99,20 @@ const SessionsPage: React.FC = () => {
       setActionError(e.message);
     }
   };
+
+  useEffect(() => {
+    if (!loading && user) {
+      if (!user.isFaculty) {
+        router.replace('/forbidden');
+      }
+    } else if (!loading && !user) {
+      router.replace('/');
+    }
+  }, [loading, user, router]);
+
+  if (loading) return <Spinner />;
+  if (authError) return <ErrorBanner error={authError} />;
+  if (!user || !user.isFaculty) return null;
 
   return (
     <div style={{ maxWidth: 600, margin: '0 auto', padding: 24 }}>

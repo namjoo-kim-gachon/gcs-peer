@@ -13,8 +13,16 @@
 ### team_members
 
 session_id (bigint, PK)
-team_name (text, PK)
+team_name (text, NOT NULL)
 user_name (text, PK)
+
+### reviews
+
+session_id (bigint, PK)
+user_name (text, PK)
+peer_name (text, PK)
+contrib_rate (double precision, NOT NULL)
+is_fit (boolean, nullable)
 
 ### sessions
 
@@ -65,6 +73,10 @@ user_name (text, PK)
 
 team_members.session_id → sessions.id (FK)
 team_members.user_name → allowed_users.name (FK)
+
+reviews.session_id → sessions.id (FK)
+reviews.user_name → allowed_users.name (FK)
+reviews.peer_name → allowed_users.name (FK)
 
 - auth.users.id는 여러 인증 관련 테이블의 FK로 사용됨
 
