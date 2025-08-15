@@ -1,3 +1,4 @@
+import { FaPlay, FaStop, FaSync, FaArrowLeft } from 'react-icons/fa';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import { QRCodeSVG } from 'qrcode.react';
@@ -163,125 +164,280 @@ export default function SessionStatusPage() {
     setConfirmOpen(false);
   }
 
+  // 전문가 스타일 변수
+  const cardStyle = {
+    maxWidth: '100vw',
+    width: '100%',
+    margin: '0',
+    background: '#fff',
+    borderRadius: 0,
+    boxShadow: 'none',
+    padding: '16px 32px 16px 8px', // 오른쪽 마진을 32px로 확대
+    minHeight: '100vh',
+  };
+  const headerStyle = {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    padding: '8px 32px', // 좌우 여백 확대
+    borderBottom: '1px solid #eee',
+  };
+  const titleStyle = {
+    fontSize: 18,
+    fontWeight: 700,
+    color: '#1976d2',
+  };
+  const statusBadge = {
+    marginLeft: 12,
+    padding: '4px 14px',
+    borderRadius: 16,
+    background: session?.status === 1 ? '#E6F9ED' : '#FFF9E3',
+    color: session?.status === 1 ? '#388e3c' : '#fbc02d',
+    fontSize: 16,
+    fontWeight: 700,
+    letterSpacing: 1,
+    boxShadow:
+      session?.status === 1
+        ? '0 2px 8px rgba(56,142,60,0.10)'
+        : '0 2px 8px rgba(251,192,45,0.10)',
+    border:
+      session?.status === 1 ? '1.5px solid #388e3c' : '1.5px solid #fbc02d',
+    transition: 'all 0.2s',
+    textShadow:
+      session?.status === 1 ? '0 1px 2px #b6f9c8' : '0 1px 2px #fff7c8',
+  };
+  const buttonStyle = {
+    padding: '10px',
+    fontSize: 22,
+    fontWeight: 600,
+    background: '#1976d2',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '50%',
+    boxShadow: '0 2px 8px rgba(25,118,210,0.08)',
+    letterSpacing: 1,
+    transition: 'background 0.2s',
+    cursor: 'pointer',
+    opacity: 1,
+    marginLeft: 8,
+    width: 48,
+    height: 48,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  };
+  const cardBox = {
+    border: '1px solid #e3eafc',
+    borderRadius: 16,
+    background: '#fff',
+    boxShadow: '0 4px 24px rgba(25, 118, 210, 0.08)',
+    padding: '32px 24px',
+    textAlign: 'center' as const,
+    marginBottom: 24,
+    height: '100%', // 세로로 채우기
+    display: 'flex',
+    flexDirection: 'column' as const,
+    justifyContent: 'flex-start' as const,
+  };
+  const gridStyle = {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: 32,
+    marginTop: 16,
+    marginBottom: 24,
+    marginRight: 32, // 오른쪽 마진 추가
+    height: '480px', // 카드 높이 지정(원하는 값으로 조정 가능)
+  };
+  const memberCard = {
+    padding: 16,
+    borderRadius: 12,
+    border: '1px solid #e3eafc',
+    background: '#f7faff',
+    color: '#1976d2',
+    fontWeight: 600,
+    fontSize: 15,
+    marginBottom: 8,
+    boxShadow: '0 2px 8px rgba(25,118,210,0.04)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    justifyContent: 'center',
+  };
+  const memberDone = {
+    ...memberCard,
+    background: '#E3FCEF',
+    color: '#388e3c',
+    border: '1px solid #b6f9c8',
+  };
+  const progressBar = {
+    width: '100%',
+    height: 16,
+    background: '#e3eafc',
+    borderRadius: 8,
+    overflow: 'hidden',
+    margin: '12px 0',
+  };
+  const progressFill = (pct: number) => ({
+    width: `${pct}%`,
+    height: '100%',
+    background: '#1976d2',
+    borderRadius: 8,
+    transition: 'width 0.3s',
+  });
+
   if (loading)
     return (
-      <div style={{ padding: 24 }}>
+      <div style={cardBox}>
         <Spinner />
       </div>
     );
   if (!authorized)
     return (
-      <div style={{ padding: 24 }}>
+      <div style={cardBox}>
         <ErrorBanner error={error ?? '권한이 없습니다.'} />
       </div>
     );
   if (error)
     return (
-      <div style={{ padding: 24 }}>
+      <div style={cardBox}>
         <ErrorBanner error={error} />
       </div>
     );
-  if (!session)
-    return <div style={{ padding: 24 }}>세션 정보를 찾지 못했습니다.</div>;
+  if (!session) return <div style={cardBox}>세션 정보를 찾지 못했습니다.</div>;
 
   const total = members.length;
   const voted = members.filter((m) => votedSet.has(m)).length;
   const progressPct = total > 0 ? Math.round((voted / total) * 100) : 0;
+  // 이름 오름차순 정렬
+  const sortedMembers = [...members].sort((a, b) => a.localeCompare(b, 'ko'));
 
   return (
-    <div style={{ padding: 24 }}>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-          marginBottom: 16,
-        }}
-      >
-        <h2 style={{ margin: 0 }}>{session.name} – 투표 현황</h2>
-        <span
-          style={{
-            marginLeft: 8,
-            padding: '2px 8px',
-            borderRadius: 4,
-            background: session.status === 1 ? '#E6FFFB' : '#F5F5F5',
-            color: session.status === 1 ? '#006d75' : '#555',
-            fontSize: 12,
-          }}
-        >
-          {session.status === 1 ? '진행중' : '대기'}
+    <div style={cardStyle}>
+      {/* 헤더 */}
+      <div style={headerStyle}>
+        <div style={titleStyle}>{session.name} </div>
+        <span style={statusBadge}>
+          {session.status === 1 ? '진행중' : '대기중'}
         </span>
         <div style={{ flex: 1 }} />
-        <button onClick={toggleStatus} style={{ padding: '8px 12px' }}>
-          {session.status === 1 ? '투표 종료' : '투표 시작'}
+        <button
+          onClick={toggleStatus}
+          style={
+            session?.status === 1
+              ? {
+                  ...buttonStyle,
+                  background: 'linear-gradient(90deg,#d32f2f 60%,#c62828 100%)',
+                  color: '#fff',
+                  boxShadow: '0 2px 8px rgba(211,47,47,0.10)',
+                }
+              : buttonStyle
+          }
+        >
+          {session.status === 1 ? <FaStop /> : <FaPlay />}
         </button>
         <button
           onClick={() => setConfirmOpen(true)}
-          style={{ padding: '8px 12px', marginLeft: 8 }}
+          style={{ ...buttonStyle, background: '#aaa' }}
         >
-          리셋
+          <FaSync />
+        </button>
+        <button
+          onClick={() => router.push('/sessions')}
+          style={{ ...buttonStyle, background: '#6c757d' }}
+        >
+          <FaArrowLeft />
         </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-        <div
-          style={{
-            border: '1px solid #eee',
-            borderRadius: 8,
-            padding: 16,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 16,
-          }}
-        >
-          <QRCodeSVG
-            value={voteUrl}
-            size={256}
-            includeMargin
-            aria-label="투표 링크 QR 코드"
-          />
-          <div style={{ wordBreak: 'break-all', textAlign: 'center' }}>
-            {voteUrl}
+      {/* 본문 카드형 그리드 */}
+      <div style={gridStyle}>
+        {/* QR 카드 */}
+        <div style={cardBox}>
+          <div
+            style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              alignItems: 'center',
+              padding: '0',
+            }}
+          >
+            <QRCodeSVG
+              value={voteUrl}
+              size={360}
+              includeMargin
+              aria-label="투표 링크 QR 코드"
+              style={{ maxWidth: '100%', height: 'auto', marginBottom: 10 }}
+            />
+            <div
+              style={{
+                wordBreak: 'break-all',
+                textAlign: 'center',
+                fontSize: 15,
+                color: '#333',
+                marginBottom: 4,
+              }}
+            >
+              {voteUrl}
+            </div>
           </div>
         </div>
 
-        <div
-          style={{
-            border: '1px solid #eee',
-            borderRadius: 8,
-            padding: 16,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 12,
-          }}
-        >
-          <div>
-            <strong>진행률: </strong>
-            {voted}/{total} ({progressPct}%)
+        {/* 진행률 카드 */}
+        <div style={cardBox}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 18,
+              fontWeight: 600,
+              fontSize: 17,
+              color: '#1976d2',
+              marginBottom: 12,
+              flexWrap: 'wrap',
+            }}
+          >
+            <span>진행률</span>
+            <span
+              style={{
+                fontSize: 16,
+                fontWeight: 700,
+                color: progressPct === 100 ? '#388e3c' : '#1976d2',
+                marginBottom: 0,
+              }}
+            >
+              {voted} / {total} ( {progressPct}% )
+            </span>
+            <span style={{ minWidth: 120, flex: 1 }}>
+              <div
+                style={{
+                  ...progressBar,
+                  margin: 0,
+                  display: 'inline-block',
+                  verticalAlign: 'middle',
+                }}
+              >
+                <div style={progressFill(progressPct)} />
+              </div>
+            </span>
           </div>
-
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
-              gap: 12,
+              gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+              gap: 10,
+              marginTop: 4,
             }}
           >
-            {members.map((name) => {
+            {sortedMembers.map((name) => {
               const done = votedSet.has(name);
               return (
-                <div
-                  key={name}
-                  style={{
-                    padding: 12,
-                    borderRadius: 8,
-                    border: '1px solid #eaeaea',
-                    background: done ? '#F6FFED' : '#fafafa',
-                    color: done ? '#389E0D' : '#333',
-                    fontWeight: done ? 600 : 400,
-                  }}
-                >
+                <div key={name} style={done ? memberDone : memberCard}>
+                  {done ? (
+                    <span style={{ marginRight: 6, fontSize: 17 }}>✅</span>
+                  ) : null}
                   {name}
                 </div>
               );
@@ -290,6 +446,7 @@ export default function SessionStatusPage() {
         </div>
       </div>
 
+      {/* 리셋 다이얼로그 */}
       <ConfirmDialog
         open={confirmOpen}
         title="리뷰 초기화"
@@ -297,6 +454,52 @@ export default function SessionStatusPage() {
         onConfirm={resetReviews}
         onCancel={() => setConfirmOpen(false)}
       />
+
+      {/* 카피라이트 영역 */}
+      <div
+        style={{
+          width: '100%',
+          textAlign: 'center',
+          marginTop: 32,
+          color: '#aaa',
+          fontSize: 13,
+          padding: '16px 0 4px 0',
+        }}
+      >
+        <div
+          style={{
+            width: '100%',
+            textAlign: 'center',
+            marginTop: 40,
+            color: '#555',
+            fontSize: 15,
+            fontWeight: 500,
+            letterSpacing: 1,
+            opacity: 0.7,
+            borderTop: '1px solid #eee',
+            padding: '18px 0 8px 0',
+            background: 'linear-gradient(180deg, #fff 80%, #f7f7f7 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+          }}
+        >
+          <span
+            style={{
+              fontSize: 16,
+              fontWeight: 700,
+              color: '#1976d2',
+              opacity: 0.8,
+            }}
+          >
+            ⓒ
+          </span>
+          <span style={{ fontSize: 15, fontWeight: 500 }}>
+            Gachon Cocone School 2025
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
