@@ -33,7 +33,20 @@ const VotePage = () => {
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
   // 내 표시명 조회 (allowed_users)
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+
+  // 인증 로딩이 끝났고 로그인 상태가 아니면 홈으로 리다이렉트(원래 경로를 sessionStorage에 저장)
+  useEffect(() => {
+    if (!authLoading && !user) {
+      if (typeof window !== 'undefined') {
+        try {
+          sessionStorage.setItem('loginReturnTo', router.asPath ?? '/');
+        } catch {}
+      }
+      router.replace('/');
+    }
+  }, [authLoading, user, router]);
+
   useEffect(() => {
     async function fetchMyName() {
       if (!user?.email) return;
@@ -184,9 +197,8 @@ const VotePage = () => {
 
   if (loading) return <Spinner />;
   if (error) return <ErrorBanner error={error} />;
-  // ...existing code...
   if (!myTeam) {
-    router.replace('/forbidden');
+    router.replace('/');
     return null;
   }
 
@@ -221,7 +233,7 @@ const VotePage = () => {
       if (!res.ok) {
         // 403 Forbidden이면 투표참여 불가 화면으로 이동
         if (res.status === 403) {
-          setSubmitError('투표가 종료되어 참여할 수 없습니다.');
+          setSubmitError('투표가 종료되어 제출하지 못했습니다');
           setTimeout(() => {
             setSubmitError(null);
             setSubmitSuccess(false);
@@ -243,13 +255,15 @@ const VotePage = () => {
 
   // 전문가 스타일 개선
   const cardStyle = {
-    maxWidth: '100vw',
+    // 컨테이너 최대 너비를 설정해 화면 중앙에 정렬하고 좌우 여백 확보
+    maxWidth: 960,
     width: '100%',
-    margin: '0',
+    margin: '0 auto',
+    boxSizing: 'border-box' as const,
     background: '#fff',
     borderRadius: 0,
     boxShadow: 'none',
-    padding: '16px 8px',
+    padding: '16px',
     minHeight: '100vh',
   };
   const sectionTitle = {
@@ -288,7 +302,7 @@ const VotePage = () => {
 
   return (
     <div style={cardStyle}>
-      <PageHeader title="GCS - 피어 평가" />
+      <PageHeader title="GCS 피어 평가" />
       <div
         style={{
           display: 'flex',
@@ -330,20 +344,6 @@ const VotePage = () => {
           >
             <div
               style={{
-                fontSize: 38,
-                color: '#1976d2',
-                marginBottom: 18,
-                fontWeight: 700,
-                letterSpacing: 1,
-              }}
-            >
-              <span role="img" aria-label="lock" style={{ marginRight: 8 }}>
-                🔒
-              </span>
-              투표가 종료되어 참여할 수 없습니다.
-            </div>
-            <div
-              style={{
                 fontSize: 20,
                 color: '#333',
                 marginBottom: 16,
@@ -351,7 +351,7 @@ const VotePage = () => {
                 lineHeight: 1.5,
               }}
             >
-              투표가 종료되었습니다. 더 이상 제출할 수 없습니다.
+              투표가 종료되어 참여할 수 없습니다.
             </div>
 
             <div
@@ -407,20 +407,6 @@ const VotePage = () => {
           >
             <div
               style={{
-                fontSize: 38,
-                color: '#1976d2',
-                marginBottom: 18,
-                fontWeight: 700,
-                letterSpacing: 1,
-              }}
-            >
-              <span role="img" aria-label="lock" style={{ marginRight: 8 }}>
-                🔒
-              </span>
-              제출 완료
-            </div>
-            <div
-              style={{
                 fontSize: 20,
                 color: '#333',
                 marginBottom: 16,
@@ -428,7 +414,7 @@ const VotePage = () => {
                 lineHeight: 1.5,
               }}
             >
-              제출이 완료되었습니다. 다시 투표하려면 아래 버튼을 눌러주세요.
+              제출이 완료되었습니다.
             </div>
             <div
               style={{

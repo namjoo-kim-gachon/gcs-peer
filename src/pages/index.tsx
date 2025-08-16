@@ -1,7 +1,11 @@
 import React from 'react';
+import { useRouter } from 'next/router';
 import LoginButton from '../components/common/LoginButton';
+import useAuth from '../hooks/useAuth';
 
 const Home: React.FC = () => {
+  const { user, signOut } = useAuth();
+  const router = useRouter();
   const page = {
     minHeight: '100vh',
     display: 'flex',
@@ -27,9 +31,46 @@ const Home: React.FC = () => {
 
   return (
     <div style={page}>
-      <div style={title}>GCS Peer</div>
+      <div style={title}>GCS 피어 평가</div>
+      <div
+        style={{
+          fontSize: 18,
+          color: '#555',
+          marginBottom: 24,
+          textAlign: 'center',
+          fontWeight: 500,
+          opacity: 0.85,
+        }}
+      >
+        등록된 GCS 학생과 교직원만 로그인 할 수 있습니다
+      </div>
       <div style={box}>
-        <LoginButton />
+        {user ? (
+          <button
+            onClick={async () => {
+              try {
+                await signOut();
+              } finally {
+                router.replace('/');
+              }
+            }}
+            style={{
+              padding: '10px 18px',
+              fontSize: 16,
+              background: '#1976d2',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 8,
+              cursor: 'pointer',
+              boxShadow: '0 4px 18px rgba(25,118,210,0.12)',
+              fontWeight: 600,
+            }}
+          >
+            로그 아웃
+          </button>
+        ) : (
+          <LoginButton />
+        )}
       </div>
 
       <div

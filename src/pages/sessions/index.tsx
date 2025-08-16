@@ -105,7 +105,7 @@ const SessionsPage: React.FC = () => {
   useEffect(() => {
     if (!loading && user) {
       if (!user.isFaculty) {
-        router.replace('/forbidden');
+        router.replace('/');
       }
     } else if (!loading && !user) {
       router.replace('/');
