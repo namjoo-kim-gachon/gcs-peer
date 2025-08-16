@@ -1,7 +1,7 @@
 import React from 'react';
 
 interface PageHeaderProps {
-  title: string;
+  title: React.ReactNode;
   children?: React.ReactNode;
 }
 
@@ -14,7 +14,18 @@ const PageHeader: React.FC<PageHeaderProps> = ({ title, children }) => (
       marginBottom: 24,
     }}
   >
-    <h1 style={{ fontSize: 28, fontWeight: 700, margin: 0 }}>{title}</h1>
+    <h1
+      style={{
+        fontSize: 28,
+        fontWeight: 700,
+        margin: 0,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+      }}
+    >
+      {title}
+    </h1>
     {children}
   </header>
 );

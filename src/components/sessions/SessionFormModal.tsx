@@ -185,7 +185,7 @@ const SessionFormModal: React.FC<SessionFormModalProps> = ({
             color: '#1976d2',
           }}
         >
-          세션 {initial?.id ? '수정' : '생성'}
+          세션 {initial?.id ? '수정하기' : '만들기'}
         </h2>
 
         {(loading || checkingTeam || loadingDbTeam) && (
