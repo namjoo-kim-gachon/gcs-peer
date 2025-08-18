@@ -13,9 +13,12 @@ interface TeamMember {
 }
 
 const VotePage = () => {
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  // 브라우저 환경에서의 setInterval 반환은 number이므로 number | null로 변경
+  const pollIntervalRef = useRef<number | null>(null);
   const router = useRouter();
   const { sessionId } = router.query;
+  // sessionId를 항상 string으로 사용하기 위해 정규화
+  const sid = Array.isArray(sessionId) ? sessionId[0] : sessionId;
   const [sessionName, setSessionName] = useState<string | null>(null);
   const [sessionStatus, setSessionStatus] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -72,22 +75,20 @@ const VotePage = () => {
   const fetchSessionAndTeam = async () => {
     setLoading(true);
     try {
-      // 세션 정보 조회
-      const sessionRes = await fetch(
-        `/api/sessions/info?sessionId=${sessionId}`,
-      );
+      // 세션 정보 조회 (정규화된 sid 사용)
+      const sessionRes = await fetch(`/api/sessions/info?sessionId=${sid}`);
       if (sessionRes.ok) {
         const sessionData = await sessionRes.json();
-        setSessionName(sessionData.name ?? String(sessionId));
+        setSessionName(sessionData.name ?? String(sid));
         setSessionStatus(
           typeof sessionData.status === 'number' ? sessionData.status : null,
         );
       } else {
-        setSessionName(String(sessionId));
+        setSessionName(String(sid));
         setSessionStatus(null);
       }
       // 팀원 목록 조회
-      const teamRes = await fetch(`/api/sessions/teams?sessionId=${sessionId}`);
+      const teamRes = await fetch(`/api/sessions/teams?sessionId=${sid}`);
       if (!teamRes.ok) throw new Error('팀원 정보 조회 실패');
       const teamData = await teamRes.json();
       setTeamMembers(teamData);
@@ -136,19 +137,19 @@ const VotePage = () => {
     }
   };
 
-  // 최초 및 myName 변경 시 실행
+  // 최초 및 myName 변경 시 실행 (sid 사용)
   useEffect(() => {
-    if (!sessionId || !myName) return;
+    if (!sid || !myName) return;
     fetchSessionAndTeam();
-  }, [sessionId, myName]);
+  }, [sid, myName]);
 
   // 폴링: 5초마다 status 자동 갱신
   useEffect(() => {
-    if (!sessionId || !myName) return;
+    if (!sid || !myName) return;
     // 투표 가능(열림) 상태면 폴링 중단, 투표 불가(닫힘) 상태면 폴링 유지
     if (sessionStatus === 1) {
       if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
+        window.clearInterval(pollIntervalRef.current);
         pollIntervalRef.current = null;
       }
       return;
@@ -156,7 +157,7 @@ const VotePage = () => {
     // sessionStatus !== 1 인 동안에는 계속 폴링 (제출 여부와 무관)
     if (sessionStatus !== 1) {
       if (!pollIntervalRef.current) {
-        pollIntervalRef.current = setInterval(() => {
+        pollIntervalRef.current = window.setInterval(() => {
           fetchSessionAndTeam();
         }, 5000);
       }
@@ -164,15 +165,15 @@ const VotePage = () => {
     // 언마운트 시 interval 정리
     return () => {
       if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
+        window.clearInterval(pollIntervalRef.current);
         pollIntervalRef.current = null;
       }
     };
-  }, [sessionId, myName, sessionStatus]);
+  }, [sid, myName, sessionStatus]);
 
   // Day 2: 기존 리뷰 프리필
   useEffect(() => {
-    if (!sessionId || !myName || !myTeam) return;
+    if (!sid || !myName || !myTeam) return;
     async function fetchMyReviews() {
       try {
         const res = await fetch('/api/reviews/my', {
@@ -180,7 +181,7 @@ const VotePage = () => {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ sessionId, user_name: myName }),
+          body: JSON.stringify({ sessionId: sid, user_name: myName }),
         });
         if (!res.ok) return;
         const reviewData = await res.json();
@@ -205,15 +206,26 @@ const VotePage = () => {
         } else {
           setSubmitSuccess(false);
         }
-      } catch {}
+      } catch (e) {
+        // 디버깅을 위해 오류 로그 출력
+        console.error(e);
+      }
     }
     fetchMyReviews();
-  }, [sessionId, myName, myTeam]);
+  }, [sid, myName, myTeam]);
+
+  // myTeam이 없고 로딩이 끝났다면 렌더가 아닌 effect에서 리다이렉트 처리
+  useEffect(() => {
+    if (!loading && !error && !myTeam) {
+      router.replace('/');
+    }
+  }, [loading, error, myTeam, router]);
 
   if (loading) return <Spinner />;
   if (error) return <ErrorBanner error={error} />;
+
+  // myTeam 타입 가드: myTeam이 없으면 렌더 중단 (useEffect에서 리다이렉트가 처리됨)
   if (!myTeam) {
-    router.replace('/');
     return null;
   }
 
@@ -244,7 +256,7 @@ const VotePage = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ sessionId, entries, user_name: myName }),
+        body: JSON.stringify({ sessionId: sid, entries, user_name: myName }),
       });
       if (!res.ok) {
         // 403 Forbidden이면 투표참여 불가 화면으로 이동
@@ -360,7 +372,7 @@ const VotePage = () => {
         }}
       >
         <div style={{ fontSize: 16, fontWeight: 700, color: '#1976d2' }}>
-          {sessionName ?? sessionId}
+          {sessionName ?? sid}
         </div>
         <div style={{ fontSize: 16, fontWeight: 700, color: '#333' }}>
           {myTeam?.teamName}
@@ -512,6 +524,7 @@ const VotePage = () => {
                   min={0}
                   max={100}
                   step={1}
+                  aria-label={`기여율 ${member}`}
                   value={contribRates[member] ?? 0}
                   onChange={(e) => {
                     const newValue = Number(e.target.value);
@@ -565,6 +578,7 @@ const VotePage = () => {
                   <span style={nameStyle}>{member}</span>
                   <input
                     type="checkbox"
+                    aria-label={`${member} 적합 여부`}
                     checked={isFits[member] === true}
                     onChange={(e) =>
                       setIsFits((prev) => ({
@@ -585,7 +599,7 @@ const VotePage = () => {
           <div style={{ marginTop: 24 }}>
             <div style={sectionTitle}>특기 사항</div>
             {myTeam?.members
-              .filter((m) => m == myName)
+              .filter((m) => m === myName)
               .map((member) => (
                 <div key={`desc-${member}`} style={{ marginBottom: 12 }}>
                   <textarea

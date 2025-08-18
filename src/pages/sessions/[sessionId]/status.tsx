@@ -1,5 +1,5 @@
 import { FaPlay, FaStop, FaSync, FaArrowLeft } from 'react-icons/fa';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { QRCodeSVG } from 'qrcode.react';
 import { supabase } from '../../../utils/supabaseClient';
@@ -27,8 +27,22 @@ export default function SessionStatusPage() {
 
   const voteUrl = sid ? `https://peer.1000.school/vote/${sid}` : '';
 
+  // 진행률과 정렬을 렌더 조건 이전에 계산하여 훅 호출 순서가 변하지 않도록 함
+  const total = members.length;
+  const voted = members.filter((m) => votedSet.has(m)).length;
+  const progressPct = useMemo(
+    () => (total > 0 ? Math.round((voted / total) * 100) : 0),
+    [total, voted],
+  );
+  const sortedMembers = useMemo(
+    () => [...members].sort((a, b) => a.localeCompare(b, 'ko')),
+    [members],
+  );
+
   useEffect(() => {
     if (!sid || Number.isNaN(sid)) return;
+
+    let unsubscribe: (() => void) | undefined;
 
     (async () => {
       const { data: auth } = await supabase.auth.getUser();
@@ -55,18 +69,18 @@ export default function SessionStatusPage() {
 
       setAuthorized(true);
       await loadSnapshot();
-      subscribeRealtime();
+      unsubscribe = subscribeRealtime();
     })();
 
     return () => {
       try {
-        supabase.removeAllChannels();
+        if (unsubscribe) unsubscribe();
       } catch {}
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sid]);
 
-  async function loadSnapshot() {
+  const loadSnapshot = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -103,35 +117,36 @@ export default function SessionStatusPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [sid]);
 
-  function subscribeRealtime() {
-    const channel = supabase
-      .channel(`reviews-status-${sid}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'reviews',
-          filter: `session_id=eq.${sid}`,
-        },
-        async () => {
-          const { data: rv } = await supabase
-            .from('reviews')
-            .select('user_name')
-            .eq('session_id', sid);
-          setVotedSet(new Set<string>((rv ?? []).map((r: any) => r.user_name)));
-        },
-      )
-      .subscribe();
+  const subscribeRealtime = useCallback(() => {
+    const channel = supabase.channel(`reviews-status-${sid}`);
+
+    channel.on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'reviews',
+        filter: `session_id=eq.${sid}`,
+      },
+      async () => {
+        const { data: rv } = await supabase
+          .from('reviews')
+          .select('user_name')
+          .eq('session_id', sid);
+        setVotedSet(new Set<string>((rv ?? []).map((r: any) => r.user_name)));
+      },
+    );
+
+    channel.subscribe();
 
     return () => {
       try {
         supabase.removeChannel(channel);
       } catch {}
     };
-  }
+  }, [sid]);
 
   async function toggleStatus() {
     if (!session) return;
@@ -306,12 +321,6 @@ export default function SessionStatusPage() {
     );
   if (!session) return <div style={cardBox}>세션 정보를 찾지 못했습니다.</div>;
 
-  const total = members.length;
-  const voted = members.filter((m) => votedSet.has(m)).length;
-  const progressPct = total > 0 ? Math.round((voted / total) * 100) : 0;
-  // 이름 오름차순 정렬
-  const sortedMembers = [...members].sort((a, b) => a.localeCompare(b, 'ko'));
-
   return (
     <div style={cardStyle}>
       {/* 헤더 */}
@@ -323,6 +332,8 @@ export default function SessionStatusPage() {
         <div style={{ flex: 1 }} />
         <button
           onClick={toggleStatus}
+          aria-label={session?.status === 1 ? '세션 중지' : '세션 시작'}
+          title={session?.status === 1 ? '세션 중지' : '세션 시작'}
           style={
             session?.status === 1
               ? {
@@ -338,12 +349,16 @@ export default function SessionStatusPage() {
         </button>
         <button
           onClick={() => setConfirmOpen(true)}
+          aria-label="리뷰 초기화"
+          title="리뷰 초기화"
           style={{ ...buttonStyle, background: '#aaa' }}
         >
           <FaSync />
         </button>
         <button
           onClick={() => router.push('/sessions')}
+          aria-label="목록으로 돌아가기"
+          title="목록으로 돌아가기"
           style={{ ...buttonStyle, background: '#6c757d' }}
         >
           <FaArrowLeft />
