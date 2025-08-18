@@ -66,6 +66,8 @@ const VotePage = () => {
         setMyName(data.name);
       } catch (e: any) {
         setError(e.message);
+        // 에러 발생 시 로딩 상태를 해제하여 스피너가 영구히 표시되는 상황 방지
+        setLoading(false);
       }
     }
     fetchMyName();
