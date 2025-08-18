@@ -23,7 +23,7 @@ export default async function handler(
   // reviews 테이블에서 내 리뷰 목록 조회
   const { data, error } = await supabase
     .from('reviews')
-    .select('peer_name, contrib_rate, is_fit')
+    .select('peer_name, contrib_rate, is_fit, description')
     .eq('session_id', sessionId)
     .eq('user_name', user_name);
 

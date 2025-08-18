@@ -45,6 +45,7 @@ export default async function handler(
     peer_name: entry.peer_name,
     contrib_rate: entry.contrib_rate,
     is_fit: entry.is_fit ?? null,
+    description: entry.description ?? null,
   }));
 
   const { error } = await supabase.from('reviews').upsert(upsertData, {

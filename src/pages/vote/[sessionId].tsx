@@ -28,6 +28,9 @@ const VotePage = () => {
     {},
   );
   const [isFits, setIsFits] = useState<{ [name: string]: boolean }>({});
+  const [contribDescriptions, setContribDescriptions] = useState<{
+    [name: string]: string;
+  }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
@@ -116,6 +119,15 @@ const VotePage = () => {
           if (member !== myName) initialFits[member] = false;
         });
         setIsFits(initialFits);
+        // 설명 기본값: 빈 문자열
+        const initialDescriptions: { [name: string]: string } = {};
+        team.members.forEach((member: string) => {
+          initialDescriptions[member] = '';
+        });
+        setContribDescriptions((prev) => {
+          const isEmpty = !prev || Object.keys(prev).length === 0;
+          return isEmpty ? initialDescriptions : prev;
+        });
       }
     } catch (e: any) {
       setError(e.message);
@@ -175,17 +187,20 @@ const VotePage = () => {
         // 프리필: 팀원 이름 기준으로만 세팅
         const rates: { [name: string]: number } = {};
         const fits: { [name: string]: boolean } = {};
+        const descriptions: { [name: string]: string } = {};
         reviewData.forEach((entry: any) => {
           if (myTeam && myTeam.members.includes(entry.peer_name)) {
             rates[entry.peer_name] = entry.contrib_rate ?? 0;
             if (typeof entry.is_fit === 'boolean')
               fits[entry.peer_name] = entry.is_fit;
+            descriptions[entry.peer_name] = entry.description ?? '';
           }
         });
         // 프리필 리뷰가 있으면만 덮어쓰기, 없으면 초기값 유지
         if (Object.keys(rates).length > 0) {
           setContribRates(rates);
           setIsFits(fits);
+          setContribDescriptions(descriptions);
           setSubmitSuccess(true); // 최초 진입 시 제출 완료 모드로 시작
         } else {
           setSubmitSuccess(false);
@@ -222,6 +237,7 @@ const VotePage = () => {
         peer_name: name,
         contrib_rate: contribRates[name] ?? 0,
         ...(name !== myName ? { is_fit: isFits[name] ?? false } : {}),
+        description: contribDescriptions[name] ?? null,
       }));
       const res = await fetch('/api/reviews/submit', {
         method: 'POST',
@@ -251,6 +267,18 @@ const VotePage = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // 로그아웃 핸들러
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch {}
+    try {
+      if (typeof window !== 'undefined')
+        sessionStorage.removeItem('loginReturnTo');
+    } catch {}
+    router.replace('/');
   };
 
   // 전문가 스타일 개선
@@ -302,7 +330,25 @@ const VotePage = () => {
 
   return (
     <div style={cardStyle}>
-      <PageHeader title="GCS 피어 평가" />
+      <PageHeader title="GCS 피어 평가">
+        <button
+          onClick={handleLogout}
+          style={{
+            padding: '8px 14px',
+            fontSize: 14,
+            fontWeight: 700,
+            background: '#fff',
+            color: '#1976d2',
+            border: '1px solid #1976d2',
+            borderRadius: 10,
+            cursor: 'pointer',
+            boxShadow: '0 2px 12px rgba(25,118,210,0.06)',
+            transition: 'background 0.15s, transform 0.08s',
+          }}
+        >
+          로그아웃
+        </button>
+      </PageHeader>
       <div
         style={{
           display: 'flex',
@@ -531,6 +577,36 @@ const VotePage = () => {
                   <span style={{ color: '#1976d2', fontWeight: 500 }}>
                     적합
                   </span>
+                </div>
+              ))}
+          </div>
+
+          {/* 특기 사항 섹션: description을 적는 곳 */}
+          <div style={{ marginTop: 24 }}>
+            <div style={sectionTitle}>특기 사항</div>
+            {myTeam?.members
+              .filter((m) => m == myName)
+              .map((member) => (
+                <div key={`desc-${member}`} style={{ marginBottom: 12 }}>
+                  <textarea
+                    placeholder="특기 사항 (선택)"
+                    rows={3}
+                    value={contribDescriptions[member] ?? ''}
+                    onChange={(e) =>
+                      setContribDescriptions((prev) => ({
+                        ...prev,
+                        [member]: e.target.value,
+                      }))
+                    }
+                    style={{
+                      width: '100%',
+                      padding: 8,
+                      borderRadius: 6,
+                      border: '1px solid #e6e6e6',
+                      fontSize: 13,
+                      resize: 'vertical' as const,
+                    }}
+                  />
                 </div>
               ))}
           </div>

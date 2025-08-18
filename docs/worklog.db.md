@@ -24,6 +24,7 @@ peer_name (text, PK)
 contrib_rate (double precision, NOT NULL)
 is_fit (boolean, nullable)
 created_at (timestamp with time zone)
+description (text, nullable)
 
 ### sessions
 
