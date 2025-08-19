@@ -41,24 +41,17 @@ const Home: React.FC = () => {
   useEffect(() => {
     if (user) {
       console.log('Home: user logged in, checking redirect...', {
-        hasReturnTo: !!router.query.returnTo,
-        returnTo: router.query.returnTo,
         isFaculty: user.isFaculty,
       });
 
-      if (router.query.returnTo) {
-        // returnTo 파라미터가 있으면 해당 경로로 리다이렉트
-        const returnPath = decodeURIComponent(router.query.returnTo as string);
-        console.log('Home: redirecting to returnTo path:', returnPath);
-        router.replace(returnPath);
-      } else if (user.isFaculty) {
-        // returnTo가 없고 교직원이면 /sessions로 리다이렉트
+      if (user.isFaculty) {
+        // 교직원이면 /sessions로 리다이렉트
         console.log('Home: faculty user, redirecting to /sessions');
         router.push('/sessions');
       }
-      // 일반 학생이고 returnTo가 없으면 홈페이지에 머무름
+      // 일반 학생이면 홈페이지에 머무름
     }
-  }, [user, router.query.returnTo, router]);
+  }, [user, router]);
   const page = {
     minHeight: '100vh',
     display: 'flex',

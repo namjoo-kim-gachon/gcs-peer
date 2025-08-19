@@ -38,9 +38,7 @@ const LoginButton: React.FC = () => {
           onClick={async () => {
             setIsSubmitting(true);
             try {
-              // returnTo 파라미터가 있으면 전달
-              const returnPath = router.query.returnTo as string;
-              await signInWithGoogle(returnPath);
+              await signInWithGoogle();
             } catch (err) {
               console.error('signInWithGoogle failed', err);
             } finally {
