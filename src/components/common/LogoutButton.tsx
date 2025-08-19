@@ -21,10 +21,20 @@ const LogoutButton: React.FC<Props> = ({
 
   const doLogout = async () => {
     setLoading(true);
+    console.log('doLogout start');
+    // 타임아웃: 8초 후에 강제 종료하여 스피너가 고착되지 않도록 함
+    const timer = setTimeout(() => {
+      console.error('logout timeout');
+      setLoading(false);
+      alert('로그아웃 요청이 지연되고 있습니다. 다시 시도해 주세요.');
+    }, 8000);
     try {
       await signOut();
-    } catch (err) {
+    } catch (err: any) {
       console.error('logout failed', err);
+      alert('로그아웃에 실패했습니다: ' + (err?.message || String(err)));
+    } finally {
+      clearTimeout(timer);
     }
     try {
       if (typeof window !== 'undefined')

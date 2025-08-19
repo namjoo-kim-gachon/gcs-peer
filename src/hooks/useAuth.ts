@@ -72,6 +72,7 @@ const useAuth = () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
       setError(error.message);
+      throw new Error(error.message);
     }
     setUser(null);
   };
