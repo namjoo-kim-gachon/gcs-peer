@@ -6,6 +6,7 @@ import { supabase } from '../../utils/supabaseClient';
 import Spinner from '../../components/common/Spinner';
 import ErrorBanner from '../../components/common/ErrorBanner';
 import PageHeader from '../../components/common/PageHeader';
+import LogoutButton from '../../components/common/LogoutButton';
 
 interface TeamMember {
   teamName: string;
@@ -345,23 +346,7 @@ const VotePage = () => {
   return (
     <div style={cardStyle}>
       <PageHeader title="GCS 피어 평가">
-        <button
-          onClick={handleLogout}
-          style={{
-            padding: '8px 14px',
-            fontSize: 14,
-            fontWeight: 700,
-            background: '#fff',
-            color: '#1976d2',
-            border: '1px solid #1976d2',
-            borderRadius: 10,
-            cursor: 'pointer',
-            boxShadow: '0 2px 12px rgba(25,118,210,0.06)',
-            transition: 'background 0.15s, transform 0.08s',
-          }}
-        >
-          로그아웃
-        </button>
+        <LogoutButton className="inline" />
       </PageHeader>
       <div
         style={{

@@ -1,10 +1,26 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import useAuth from '../../hooks/useAuth';
+import Spinner from './Spinner';
+import styles from './Button.module.css';
+
+// 공통 스타일을 컴포넌트 바깥으로 이동하여 재생성 방지
+const container = {
+  width: '100%',
+  display: 'flex',
+  justifyContent: 'center',
+} as const;
+
+const inlineSpan = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 10,
+} as const;
 
 const LoginButton: React.FC = () => {
   const { user, loading, error, signInWithGoogle } = useAuth();
   const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // 로그인 성공 후 리다이렉트 처리: sessionStorage의 loginReturnTo가 있으면 해당 경로로 이동
   useEffect(() => {
@@ -18,33 +34,22 @@ const LoginButton: React.FC = () => {
             router.replace(returnTo);
             return;
           }
-        } catch {}
+        } catch (err) {
+          // 예외는 로깅해두면 디버깅에 도움됨
+          console.error('sessionStorage access failed', err);
+        }
       }
       // 교직원은 기존 로직으로 /sessions로 이동
       if (user.isFaculty) router.push('/sessions');
     }
   }, [user, router]);
 
-  const container = {
-    width: '100%',
-    display: 'flex',
-    justifyContent: 'center',
-  } as const;
-
-  const btn = {
-    width: '100%',
-    maxWidth: 360,
-    padding: '12px 18px',
-    fontSize: 16,
-    background: '#1976d2',
-    color: '#fff',
-    border: 'none',
-    borderRadius: 10,
-    cursor: 'pointer',
-    boxShadow: '0 4px 18px rgba(25,118,210,0.12)',
-  } as const;
-
-  if (loading) return <div style={container}>로딩 중...</div>;
+  if (loading)
+    return (
+      <div style={container}>
+        <Spinner />
+      </div>
+    );
   if (error)
     return <div style={{ color: 'red', textAlign: 'center' }}>{error}</div>;
 
@@ -52,21 +57,30 @@ const LoginButton: React.FC = () => {
     return (
       <div style={container}>
         <button
-          onClick={signInWithGoogle}
-          style={btn}
+          onClick={async () => {
+            setIsSubmitting(true);
+            try {
+              await signInWithGoogle();
+            } catch (err) {
+              console.error('signInWithGoogle failed', err);
+            } finally {
+              setIsSubmitting(false);
+            }
+          }}
+          className={`${styles.button} ${isSubmitting ? styles.disabled : ''}`}
           aria-label="구글로 로그인"
+          disabled={isSubmitting || loading}
         >
-          <span
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}
-          >
+          <span style={inlineSpan}>
             {/* Google G 로고 (간단한 SVG) */}
             <svg
               width="20"
               height="20"
               viewBox="0 0 48 48"
               xmlns="http://www.w3.org/2000/svg"
-              aria-hidden="true"
+              role="img"
             >
+              <title>Google</title>
               <path
                 fill="#EA4335"
                 d="M24 9.5c3.9 0 7 1.4 9.1 2.9l6.7-6.7C36.6 3.2 30.6 1 24 1 14.8 1 6.9 6.2 3 13.8l7.8 6.1C12.8 14.2 17.8 9.5 24 9.5z"
@@ -91,7 +105,13 @@ const LoginButton: React.FC = () => {
     );
   }
 
-  return <div style={container} />;
+  // 로그인된 상태에서는 즉시 리다이렉트 로직이 돌고 있지만,
+  // 시각적으로는 처리중임을 보여주는게 UX에 좋음
+  return (
+    <div style={container}>
+      <Spinner />
+    </div>
+  );
 };
 
 export default LoginButton;

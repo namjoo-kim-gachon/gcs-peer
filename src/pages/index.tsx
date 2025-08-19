@@ -1,11 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/router';
 import LoginButton from '../components/common/LoginButton';
 import useAuth from '../hooks/useAuth';
+import Spinner from '../components/common/Spinner';
+import styles from '../components/common/Button.module.css';
+import LogoutButton from '../components/common/LogoutButton';
 
 const Home: React.FC = () => {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const page = {
     minHeight: '100vh',
     display: 'flex',
@@ -44,34 +48,7 @@ const Home: React.FC = () => {
       >
         등록된 GCS 학생과 교직원만 로그인 할 수 있습니다
       </div>
-      <div style={box}>
-        {user ? (
-          <button
-            onClick={async () => {
-              try {
-                await signOut();
-              } finally {
-                router.replace('/');
-              }
-            }}
-            style={{
-              padding: '10px 18px',
-              fontSize: 16,
-              background: '#1976d2',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 8,
-              cursor: 'pointer',
-              boxShadow: '0 4px 18px rgba(25,118,210,0.12)',
-              fontWeight: 600,
-            }}
-          >
-            로그 아웃
-          </button>
-        ) : (
-          <LoginButton />
-        )}
-      </div>
+      <div style={box}>{user ? <LogoutButton /> : <LoginButton />}</div>
 
       <div
         style={{

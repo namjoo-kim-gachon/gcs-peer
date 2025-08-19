@@ -12,6 +12,7 @@ import ConfirmDialog from '../../components/common/ConfirmDialog';
 import SessionList from '../../components/sessions/SessionList';
 import SessionFormModal from '../../components/sessions/SessionFormModal';
 import { FaPlus } from 'react-icons/fa';
+import LogoutButton from '../../components/common/LogoutButton';
 
 const fetchSessions = async () => {
   const { data, error } = await supabase
@@ -159,28 +160,7 @@ const SessionsPage: React.FC = () => {
           }
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <button
-              onClick={async () => {
-                try {
-                  await signOut();
-                } finally {
-                  router.replace('/');
-                }
-              }}
-              style={{
-                padding: '12px 18px',
-                fontSize: 16,
-                background: '#1976d2',
-                color: '#fff',
-                border: 'none',
-                borderRadius: 10,
-                cursor: 'pointer',
-                boxShadow: '0 4px 18px rgba(25,118,210,0.12)',
-                fontWeight: 600,
-              }}
-            >
-              로그아웃
-            </button>
+            <LogoutButton />
           </div>
         </PageHeader>
         {actionError && <ErrorBanner error={actionError} />}
