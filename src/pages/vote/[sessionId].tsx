@@ -40,7 +40,7 @@ const VotePage = () => {
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
   // 내 표시명 조회 (allowed_users)
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
 
   // 인증 로딩이 끝났고 로그인 상태가 아니면 홈으로 리다이렉트(원래 경로를 sessionStorage에 저장)
   useEffect(() => {
@@ -284,15 +284,19 @@ const VotePage = () => {
     }
   };
 
-  // 로그아웃 핸들러
+  // 로그아웃 핸들러 (useAuth.signOut 사용)
   const handleLogout = async () => {
     try {
-      await supabase.auth.signOut();
-    } catch {}
+      await signOut();
+    } catch (e) {
+      console.error('handleLogout signOut error', e);
+    }
     try {
       if (typeof window !== 'undefined')
         sessionStorage.removeItem('loginReturnTo');
-    } catch {}
+    } catch (e) {
+      console.error('sessionStorage cleanup failed', e);
+    }
     router.replace('/');
   };
 

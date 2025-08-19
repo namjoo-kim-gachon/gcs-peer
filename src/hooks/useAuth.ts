@@ -6,6 +6,8 @@ const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // 초기화 플래그는 훅 최상단에 선언되어야 합니다 (hooks 규칙 준수)
+  const initRef = useRef(false);
 
   const fetchUserWithRole = async (email: string, id: string) => {
     const { data: allowed, error } = await supabase
@@ -27,64 +29,13 @@ const useAuth = () => {
   };
 
   useEffect(() => {
-    const initRef = useRef(false);
-    // OAuth 리다이렉트 콜백 처리: URL에 토큰/코드가 포함되어 있으면 getSessionFromUrl로 세션 회수
-    if (typeof window !== 'undefined') {
-      const href = window.location.href;
-      if (
-        href.includes('access_token') ||
-        href.includes('refresh_token') ||
-        href.includes('code=') ||
-        href.includes('provider=')
-      ) {
-        (async () => {
-          try {
-            console.log(
-              'useAuth: detected OAuth redirect, trying getSessionFromUrl',
-            );
-            const authClient: any = supabase.auth as any;
-            if (typeof authClient.getSessionFromUrl === 'function') {
-              const { data, error } = await authClient.getSessionFromUrl();
-              if (error) {
-                console.error('useAuth.getSessionFromUrl error', error);
-              } else {
-                const sessionUser = data?.session?.user;
-                if (sessionUser?.email && sessionUser?.id) {
-                  await fetchUserWithRole(sessionUser.email, sessionUser.id);
-                }
-              }
-            } else {
-              console.warn(
-                'useAuth: getSessionFromUrl not available on supabase.auth',
-              );
-            }
-          } catch (err) {
-            console.error('useAuth.getSessionFromUrl failed', err);
-          } finally {
-            // URL 정리: 해시/쿼리 제거하여 동일한 처리가 반복되지 않도록 함
-            try {
-              if (typeof window !== 'undefined') {
-                const clean =
-                  window.location.origin +
-                  window.location.pathname +
-                  window.location.search.replace(/([#?].*)/, '');
-                window.history.replaceState(
-                  {},
-                  document.title,
-                  window.location.pathname,
-                );
-              }
-            } catch (e) {}
-          }
-        })();
-      }
-    }
-
     const getSession = async () => {
       try {
         // onAuthStateChange가 이미 실행되어 초기화가 완료된 경우 불필요한 getSession 호출을 피함
         if (initRef.current) {
-          console.log('useAuth: init already handled by onAuthStateChange, skipping getSession');
+          console.log(
+            'useAuth: init already handled by onAuthStateChange, skipping getSession',
+          );
           setLoading(false);
           return;
         }
@@ -158,12 +109,43 @@ const useAuth = () => {
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      setError(error.message);
-      throw new Error(error.message);
-    }
+    // 먼저 로컬 상태를 정리합니다.
     setUser(null);
+
+    // 로컬 스토리지에서 Supabase 관련 키를 모두 제거합니다.
+    if (typeof window !== 'undefined') {
+      try {
+        Object.keys(window.localStorage).forEach((key) => {
+          if (key.startsWith('sb-') && key.includes('-auth-token')) {
+            window.localStorage.removeItem(key);
+            console.log(`useAuth: removed stale auth token ${key}`);
+          }
+        });
+      } catch (e) {
+        console.error('useAuth: failed to clear local storage', e);
+      }
+    }
+
+    // 서버에 로그아웃을 요청합니다.
+    const { error } = await supabase.auth.signOut();
+
+    // 에러가 발생하더라도, '세션 없음' 관련 에러는 경고로 처리하고 무시합니다.
+    if (error) {
+      const isSessionMissingError =
+        (error.message &&
+          error.message.toLowerCase().includes('auth session missing')) ||
+        (error.status && (error.status === 401 || error.status === 403));
+
+      if (isSessionMissingError) {
+        console.warn(
+          `Supabase signOut warning: ${error.message}. This is expected if the session was already invalid.`,
+        );
+      } else {
+        // 그 외의 예기치 않은 에러는 콘솔에 에러로 표시합니다.
+        console.error('An unexpected error occurred during signOut:', error);
+        setError(error.message);
+      }
+    }
   };
 
   return { user, loading, error, signInWithGoogle, signOut };
