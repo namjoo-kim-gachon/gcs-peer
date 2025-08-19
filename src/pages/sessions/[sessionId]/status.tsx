@@ -25,7 +25,7 @@ export default function SessionStatusPage() {
   const [members, setMembers] = useState<string[]>([]);
   const [votedSet, setVotedSet] = useState<Set<string>>(new Set());
 
-  const voteUrl = sid ? `https://peer.1000.school/vote/${sid}` : '';
+  const voteUrl = `https://peer.1000.school`;
 
   // 진행률과 정렬을 렌더 조건 이전에 계산하여 훅 호출 순서가 변하지 않도록 함
   const total = members.length;
@@ -43,6 +43,7 @@ export default function SessionStatusPage() {
     if (!sid || Number.isNaN(sid)) return;
 
     let unsubscribe: (() => void) | undefined;
+    let eventListenersRegistered = false;
 
     (async () => {
       const { data: auth } = await supabase.auth.getUser();
@@ -69,12 +70,87 @@ export default function SessionStatusPage() {
 
       setAuthorized(true);
       await loadSnapshot();
+
+      // 페이지 진입 시 세션 상태를 1(진행중)로 설정
+      const { data: updatedSession } = await supabase
+        .from('sessions')
+        .update({ status: 1 })
+        .eq('id', sid)
+        .select('id,name,status')
+        .single();
+
+      if (updatedSession) {
+        setSession(updatedSession as SessionRow);
+      }
+
       unsubscribe = subscribeRealtime();
+
+      // 초기화가 완료된 후 약간의 지연을 두고 이벤트 리스너 등록
+      setTimeout(() => {
+        // 페이지 나갈 때 세션 상태를 0으로 설정하는 함수
+        const stopSession = async () => {
+          if (sid && !Number.isNaN(sid)) {
+            try {
+              await supabase
+                .from('sessions')
+                .update({ status: 0 })
+                .eq('id', sid);
+            } catch (error) {
+              console.error('Failed to stop session:', error);
+            }
+          }
+        };
+
+        // 페이지 숨김/닫기 이벤트 핸들러 (브라우저 탭 닫기, 새로고침 등)
+        const handlePageHide = () => {
+          if (sid && !Number.isNaN(sid)) {
+            const data = new Blob([JSON.stringify({ sessionId: sid })], {
+              type: 'application/json',
+            });
+            navigator.sendBeacon('/api/sessions/stop', data);
+          }
+        };
+
+        // 라우터 변경 이벤트 핸들러 (Next.js 페이지 이동)
+        const handleRouteChange = () => {
+          stopSession();
+        };
+
+        // 이벤트 리스너 등록
+        window.addEventListener('pagehide', handlePageHide);
+        router.events.on('routeChangeStart', handleRouteChange);
+        eventListenersRegistered = true;
+
+        // cleanup을 위해 전역에 함수들 저장
+        (window as any)._sessionCleanupFunctions = {
+          handlePageHide,
+          handleRouteChange,
+          stopSession,
+        };
+      }, 1000); // 1초 후에 이벤트 리스너 등록
     })();
 
     return () => {
       try {
         if (unsubscribe) unsubscribe();
+
+        // 이벤트 리스너 제거
+        if (
+          eventListenersRegistered &&
+          (window as any)._sessionCleanupFunctions
+        ) {
+          const { handlePageHide, handleRouteChange, stopSession } = (
+            window as any
+          )._sessionCleanupFunctions;
+          window.removeEventListener('pagehide', handlePageHide);
+          router.events.off('routeChangeStart', handleRouteChange);
+
+          // 컴포넌트 언마운트 시에도 세션 정지
+          stopSession();
+
+          // cleanup 함수들 제거
+          delete (window as any)._sessionCleanupFunctions;
+        }
       } catch {}
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
