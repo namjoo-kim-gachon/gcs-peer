@@ -40,7 +40,17 @@ export default function SessionStatusPage() {
   );
 
   useEffect(() => {
-    if (!sid || Number.isNaN(sid)) return;
+    // Router가 준비되지 않았으면 대기
+    if (!router.isReady) {
+      return;
+    }
+
+    // sessionId가 유효하지 않으면 에러 처리
+    if (!sid || Number.isNaN(sid)) {
+      setError('유효하지 않은 세션 ID입니다.');
+      setLoading(false);
+      return;
+    }
 
     let unsubscribe: (() => void) | undefined;
     let eventListenersRegistered = false;
@@ -154,7 +164,7 @@ export default function SessionStatusPage() {
       } catch {}
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sid]);
+  }, [sid, router.isReady]);
 
   const loadSnapshot = useCallback(async () => {
     try {
@@ -196,6 +206,11 @@ export default function SessionStatusPage() {
   }, [sid]);
 
   const subscribeRealtime = useCallback(() => {
+    // sid가 유효하지 않으면 구독하지 않음
+    if (!sid || Number.isNaN(sid)) {
+      return () => {};
+    }
+
     const channel = supabase.channel(`reviews-status-${sid}`);
 
     channel.on(
@@ -207,11 +222,15 @@ export default function SessionStatusPage() {
         filter: `session_id=eq.${sid}`,
       },
       async () => {
-        const { data: rv } = await supabase
-          .from('reviews')
-          .select('user_name')
-          .eq('session_id', sid);
-        setVotedSet(new Set<string>((rv ?? []).map((r: any) => r.user_name)));
+        try {
+          const { data: rv } = await supabase
+            .from('reviews')
+            .select('user_name')
+            .eq('session_id', sid);
+          setVotedSet(new Set<string>((rv ?? []).map((r: any) => r.user_name)));
+        } catch (error) {
+          console.error('Realtime update failed:', error);
+        }
       },
     );
 

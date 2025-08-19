@@ -408,7 +408,7 @@ const VotePage = () => {
       if (!res.ok) {
         // 403 Forbidden이면 투표참여 불가 화면으로 이동
         if (res.status === 403) {
-          setSubmitError('투표가 종료되어 제출하지 못했습니다');
+          setSubmitError('평가가 종료되어 제출하지 못했습니다');
           setTimeout(() => {
             setSubmitError(null);
             setSubmitSuccess(false);
@@ -526,7 +526,7 @@ const VotePage = () => {
                 lineHeight: 1.5,
               }}
             >
-              투표가 종료되어 참여할 수 없습니다.
+              참여할 수 있는 피어 평가가 없습니다.
             </div>
 
             <div
