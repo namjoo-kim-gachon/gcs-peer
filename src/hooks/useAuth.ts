@@ -104,11 +104,18 @@ const useAuth = () => {
       ? `${baseUrl}/?returnTo=${encodeURIComponent(returnUrl)}`
       : baseUrl;
 
+    console.log('useAuth: signInWithGoogle called', {
+      returnUrl,
+      baseUrl,
+      redirectTo
+    });
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo },
     });
     if (error) {
+      console.error('useAuth: signInWithGoogle error', error);
       setError(error.message);
     }
     return null;

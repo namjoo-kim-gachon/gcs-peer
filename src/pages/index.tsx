@@ -11,12 +11,26 @@ const Home: React.FC = () => {
   const router = useRouter();
   const [isSigningOut, setIsSigningOut] = useState(false);
 
-  // 로그인 후 returnTo 파라미터 처리
+  // 로그인 후 리다이렉트 처리
   useEffect(() => {
-    if (user && router.query.returnTo) {
-      const returnPath = decodeURIComponent(router.query.returnTo as string);
-      // URL에서 returnTo 파라미터를 제거하면서 리다이렉트
-      router.replace(returnPath);
+    if (user) {
+      console.log('Home: user logged in, checking redirect...', {
+        hasReturnTo: !!router.query.returnTo,
+        returnTo: router.query.returnTo,
+        isFaculty: user.isFaculty
+      });
+      
+      if (router.query.returnTo) {
+        // returnTo 파라미터가 있으면 해당 경로로 리다이렉트
+        const returnPath = decodeURIComponent(router.query.returnTo as string);
+        console.log('Home: redirecting to returnTo path:', returnPath);
+        router.replace(returnPath);
+      } else if (user.isFaculty) {
+        // returnTo가 없고 교직원이면 /sessions로 리다이렉트
+        console.log('Home: faculty user, redirecting to /sessions');
+        router.push('/sessions');
+      }
+      // 일반 학생이고 returnTo가 없으면 홈페이지에 머무름
     }
   }, [user, router.query.returnTo, router]);
   const page = {
