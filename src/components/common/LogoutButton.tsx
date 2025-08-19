@@ -22,11 +22,13 @@ const LogoutButton: React.FC<Props> = ({
   const doLogout = async () => {
     setLoading(true);
     console.log('doLogout start');
-    // 타임아웃: 8초 후에 강제 종료하여 스피너가 고착되지 않도록 함
+    // 타임아웃: 5초 후에 강제 종료하여 스피너가 고착되지 않도록 함
     const timer = setTimeout(() => {
       console.error('logout timeout');
       setLoading(false);
-    }, 8000);
+      // 타임아웃 시 페이지 새로고침
+      window.location.reload();
+    }, 5000);
     try {
       await signOut();
     } catch (err: any) {
