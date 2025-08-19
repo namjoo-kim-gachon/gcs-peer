@@ -26,7 +26,6 @@ const LogoutButton: React.FC<Props> = ({
     const timer = setTimeout(() => {
       console.error('logout timeout');
       setLoading(false);
-      alert('로그아웃 요청이 지연되고 있습니다. 다시 시도해 주세요.');
     }, 8000);
     try {
       await signOut();

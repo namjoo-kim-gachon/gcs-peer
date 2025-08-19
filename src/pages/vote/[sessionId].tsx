@@ -6,7 +6,6 @@ import { supabase } from '../../utils/supabaseClient';
 import Spinner from '../../components/common/Spinner';
 import ErrorBanner from '../../components/common/ErrorBanner';
 import PageHeader from '../../components/common/PageHeader';
-import LogoutButton from '../../components/common/LogoutButton';
 
 interface TeamMember {
   teamName: string;
@@ -145,34 +144,6 @@ const VotePage = () => {
     if (!sid || !myName) return;
     fetchSessionAndTeam();
   }, [sid, myName]);
-
-  // 폴링: 5초마다 status 자동 갱신
-  useEffect(() => {
-    if (!sid || !myName) return;
-    // 투표 가능(열림) 상태면 폴링 중단, 투표 불가(닫힘) 상태면 폴링 유지
-    if (sessionStatus === 1) {
-      if (pollIntervalRef.current) {
-        window.clearInterval(pollIntervalRef.current);
-        pollIntervalRef.current = null;
-      }
-      return;
-    }
-    // sessionStatus !== 1 인 동안에는 계속 폴링 (제출 여부와 무관)
-    if (sessionStatus !== 1) {
-      if (!pollIntervalRef.current) {
-        pollIntervalRef.current = window.setInterval(() => {
-          fetchSessionAndTeam();
-        }, 5000);
-      }
-    }
-    // 언마운트 시 interval 정리
-    return () => {
-      if (pollIntervalRef.current) {
-        window.clearInterval(pollIntervalRef.current);
-        pollIntervalRef.current = null;
-      }
-    };
-  }, [sid, myName, sessionStatus]);
 
   // Day 2: 기존 리뷰 프리필
   useEffect(() => {
@@ -349,9 +320,7 @@ const VotePage = () => {
 
   return (
     <div style={cardStyle}>
-      <PageHeader title="GCS 피어 평가">
-        <LogoutButton className="inline" />
-      </PageHeader>
+      <PageHeader title="GCS 피어 평가" />
       <div
         style={{
           display: 'flex',
