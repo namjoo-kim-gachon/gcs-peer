@@ -38,7 +38,9 @@ const useAuth = () => {
       ) {
         (async () => {
           try {
-            console.log('useAuth: detected OAuth redirect, trying getSessionFromUrl');
+            console.log(
+              'useAuth: detected OAuth redirect, trying getSessionFromUrl',
+            );
             const authClient: any = supabase.auth as any;
             if (typeof authClient.getSessionFromUrl === 'function') {
               const { data, error } = await authClient.getSessionFromUrl();
@@ -51,7 +53,9 @@ const useAuth = () => {
                 }
               }
             } else {
-              console.warn('useAuth: getSessionFromUrl not available on supabase.auth');
+              console.warn(
+                'useAuth: getSessionFromUrl not available on supabase.auth',
+              );
             }
           } catch (err) {
             console.error('useAuth.getSessionFromUrl failed', err);
@@ -59,8 +63,15 @@ const useAuth = () => {
             // URL 정리: 해시/쿼리 제거하여 동일한 처리가 반복되지 않도록 함
             try {
               if (typeof window !== 'undefined') {
-                const clean = window.location.origin + window.location.pathname + window.location.search.replace(/([#?].*)/, '');
-                window.history.replaceState({}, document.title, window.location.pathname);
+                const clean =
+                  window.location.origin +
+                  window.location.pathname +
+                  window.location.search.replace(/([#?].*)/, '');
+                window.history.replaceState(
+                  {},
+                  document.title,
+                  window.location.pathname,
+                );
               }
             } catch (e) {}
           }
