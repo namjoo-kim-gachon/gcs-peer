@@ -24,8 +24,78 @@ export default function SessionStatusPage() {
   const [session, setSession] = useState<SessionRow | null>(null);
   const [members, setMembers] = useState<string[]>([]);
   const [votedSet, setVotedSet] = useState<Set<string>>(new Set());
+  const [reviews, setReviews] = useState<any[]>([]);
 
   const voteUrl = `https://peer.1000.school`;
+
+  // 투표 통계 계산
+  const voteStats = useMemo(() => {
+    if (reviews.length === 0) return null;
+
+    const selfRates: number[] = [];
+    const peerRates: number[] = [];
+    const selfFitStats = { fit: 0, total: 0 };
+    const peerFitStats = { fit: 0, total: 0 };
+
+    reviews.forEach((review: any) => {
+      if (review.user_name === review.peer_name) {
+        selfRates.push(review.contrib_rate);
+        if (review.is_fit !== null) {
+          selfFitStats.total++;
+          if (review.is_fit === true) {
+            selfFitStats.fit++;
+          }
+        }
+      } else {
+        peerRates.push(review.contrib_rate);
+        if (review.is_fit !== null) {
+          peerFitStats.total++;
+          if (review.is_fit === true) {
+            peerFitStats.fit++;
+          }
+        }
+      }
+    });
+
+    const calculateStats = (rates: number[]) => {
+      if (rates.length === 0) return { avg: 0, median: 0, std: 0 };
+
+      const sorted = [...rates].sort((a, b) => a - b);
+      const avg = rates.reduce((sum, rate) => sum + rate, 0) / rates.length;
+      const median = sorted[Math.floor(sorted.length / 2)];
+
+      const variance =
+        rates.reduce((sum, rate) => sum + Math.pow(rate - avg, 2), 0) /
+        rates.length;
+      const std = Math.sqrt(variance);
+
+      return { avg, median, std, count: rates.length };
+    };
+
+    return {
+      self: calculateStats(selfRates),
+      peer: calculateStats(peerRates),
+      total: selfRates.length + peerRates.length,
+      fitStats: {
+        self: {
+          fitRate:
+            selfFitStats.total > 0
+              ? (selfFitStats.fit / selfFitStats.total) * 100
+              : 0,
+          fitCount: selfFitStats.fit,
+          totalCount: selfFitStats.total,
+        },
+        peer: {
+          fitRate:
+            peerFitStats.total > 0
+              ? (peerFitStats.fit / peerFitStats.total) * 100
+              : 0,
+          fitCount: peerFitStats.fit,
+          totalCount: peerFitStats.total,
+        },
+      },
+    };
+  }, [reviews]);
 
   // 진행률과 정렬을 렌더 조건 이전에 계산하여 훅 호출 순서가 변하지 않도록 함
   const total = members.length;
@@ -190,10 +260,11 @@ export default function SessionStatusPage() {
 
       const { data: rv, error: rvErr } = await supabase
         .from('reviews')
-        .select('user_name, session_id')
+        .select('user_name, session_id, peer_name, contrib_rate, is_fit')
         .eq('session_id', sid);
       if (rvErr) throw rvErr;
 
+      setReviews(rv ?? []);
       const votedNames = new Set<string>(
         (rv ?? []).map((r: any) => r.user_name),
       );
@@ -225,8 +296,10 @@ export default function SessionStatusPage() {
         try {
           const { data: rv } = await supabase
             .from('reviews')
-            .select('user_name')
+            .select('user_name, peer_name, contrib_rate, is_fit')
             .eq('session_id', sid);
+
+          setReviews(rv ?? []);
           setVotedSet(new Set<string>((rv ?? []).map((r: any) => r.user_name)));
         } catch (error) {
           console.error('Realtime update failed:', error);
@@ -462,37 +535,253 @@ export default function SessionStatusPage() {
 
       {/* 본문 카드형 그리드 */}
       <div style={gridStyle}>
-        {/* QR 카드 */}
+        {/* QR 카드 또는 투표 통계 카드 */}
         <div style={cardBox}>
-          <div
-            style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              alignItems: 'center',
-              padding: '0',
-            }}
-          >
-            <QRCodeSVG
-              value={voteUrl}
-              size={360}
-              includeMargin
-              aria-label="투표 링크 QR 코드"
-              style={{ maxWidth: '100%', height: 'auto', marginBottom: 10 }}
-            />
+          {session.status === 1 ? (
+            // 투표 진행 중일 때 QR 코드 표시
             <div
               style={{
-                wordBreak: 'break-all',
-                textAlign: 'center',
-                fontSize: 15,
-                color: '#333',
-                marginBottom: 4,
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                padding: '0',
               }}
             >
-              {voteUrl}
+              <QRCodeSVG
+                value={voteUrl}
+                size={360}
+                includeMargin
+                aria-label="투표 링크 QR 코드"
+                style={{ maxWidth: '100%', height: 'auto', marginBottom: 10 }}
+              />
+              <div
+                style={{
+                  wordBreak: 'break-all',
+                  textAlign: 'center',
+                  fontSize: 15,
+                  color: '#333',
+                  marginBottom: 4,
+                }}
+              >
+                {voteUrl}
+              </div>
             </div>
-          </div>
+          ) : (
+            // 투표 종료 후 통계 표시
+            <div style={{ flex: 1, padding: '16px' }}>
+              <h3
+                style={{
+                  color: '#1976d2',
+                  marginBottom: 20,
+                  textAlign: 'center',
+                }}
+              >
+                평가 결과 통계
+              </h3>
+              {voteStats ? (
+                <div
+                  style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
+                >
+                  {/* 평균 차이 막대그래프 */}
+                  <div style={{ marginTop: 20 }}>
+                    <h4
+                      style={{
+                        color: '#333',
+                        marginBottom: 16,
+                        textAlign: 'center',
+                      }}
+                    >
+                      기여율 평가 비교
+                    </h4>
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 12,
+                      }}
+                    >
+                      {/* 자기 평가 막대 */}
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 12,
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: 80,
+                            fontSize: 14,
+                            color: '#1976d2',
+                            fontWeight: 600,
+                          }}
+                        >
+                          자기 평가
+                        </div>
+                        <div
+                          style={{
+                            flex: 1,
+                            height: 24,
+                            background: '#e3eafc',
+                            borderRadius: 12,
+                            position: 'relative',
+                          }}
+                        >
+                          <div
+                            style={{
+                              height: '100%',
+                              background:
+                                'linear-gradient(90deg, #1976d2, #42a5f5)',
+                              borderRadius: 12,
+                              width: `${Math.min(voteStats.self.avg, 100)}%`,
+                              transition: 'width 0.5s ease',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'flex-end',
+                              paddingRight: 8,
+                              color: 'white',
+                              fontSize: 12,
+                              fontWeight: 600,
+                            }}
+                          >
+                            {voteStats.self.avg.toFixed(1)}%
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 동료 평가 막대 */}
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 12,
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: 80,
+                            fontSize: 14,
+                            color: '#f57c00',
+                            fontWeight: 600,
+                          }}
+                        >
+                          동료 평가
+                        </div>
+                        <div
+                          style={{
+                            flex: 1,
+                            height: 24,
+                            background: '#ffe0b2',
+                            borderRadius: 12,
+                            position: 'relative',
+                          }}
+                        >
+                          <div
+                            style={{
+                              height: '100%',
+                              background:
+                                'linear-gradient(90deg, #f57c00, #ff9800)',
+                              borderRadius: 12,
+                              width: `${Math.min(voteStats.peer.avg, 100)}%`,
+                              transition: 'width 0.5s ease',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'flex-end',
+                              paddingRight: 8,
+                              color: 'white',
+                              fontSize: 12,
+                              fontWeight: 600,
+                            }}
+                          >
+                            {voteStats.peer.avg.toFixed(1)}%
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 팀 적합도 비율 시각화 */}
+                  <div style={{ marginTop: 20 }}>
+                    <h4
+                      style={{
+                        color: '#333',
+                        marginBottom: 16,
+                        textAlign: 'center',
+                      }}
+                    >
+                      적합도 평가 결과
+                    </h4>
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 12,
+                      }}
+                    >
+                      {/* 동료 평가 적합도 */}
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 12,
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: 80,
+                            fontSize: 14,
+                            color: '#f57c00',
+                            fontWeight: 600,
+                          }}
+                        >
+                          적합 비율
+                        </div>
+                        <div
+                          style={{
+                            flex: 1,
+                            height: 24,
+                            background: '#ffe0b2',
+                            borderRadius: 12,
+                            position: 'relative',
+                          }}
+                        >
+                          <div
+                            style={{
+                              height: '100%',
+                              background:
+                                'linear-gradient(90deg, #4caf50, #66bb6a)',
+                              borderRadius: 12,
+                              width: `${Math.min(voteStats.fitStats.peer.fitRate, 100)}%`,
+                              transition: 'width 0.5s ease',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'flex-end',
+                              paddingRight: 8,
+                              color: 'white',
+                              fontSize: 12,
+                              fontWeight: 600,
+                            }}
+                          >
+                            {voteStats.fitStats.peer.fitRate.toFixed(1)}%
+                          </div>
+                        </div>
+                        <div style={{ width: 60, fontSize: 12, color: '#666' }}>
+                          {voteStats.fitStats.peer.fitCount}/
+                          {voteStats.fitStats.peer.totalCount}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', color: '#666' }}>
+                  투표 데이터가 없습니다.
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* 진행률 카드 */}
