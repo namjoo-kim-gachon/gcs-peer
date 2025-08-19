@@ -28,28 +28,57 @@ const useAuth = () => {
 
   useEffect(() => {
     const getSession = async () => {
-      const { data, error } = await supabase.auth.getSession();
-      const sessionUser = data?.session?.user;
-      if (sessionUser?.email && sessionUser?.id) {
-        await fetchUserWithRole(sessionUser.email, sessionUser.id);
-      } else {
+      try {
+        console.log('useAuth: getSession start');
+        // 타임아웃 폴백: supabase.auth.getSession()가 응답하지 않으면 8초 후 폴백
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise((resolve) =>
+          setTimeout(() => resolve({ __timeout: true }), 8000),
+        );
+        const res: any = await Promise.race([sessionPromise, timeoutPromise]);
+        if (res && res.__timeout) {
+          console.error('useAuth.getSession timed out');
+          setUser(null);
+          return;
+        }
+        const { data, error } = res as { data?: any; error?: any };
+        if (error) {
+          console.error('useAuth.getSession error', error);
+          setUser(null);
+          return;
+        }
+        const sessionUser = data?.session?.user;
+        if (sessionUser?.email && sessionUser?.id) {
+          await fetchUserWithRole(sessionUser.email, sessionUser.id);
+        } else {
+          setUser(null);
+        }
+      } catch (err) {
+        console.error('useAuth.getSession failed', err);
         setUser(null);
+      } finally {
+        setLoading(false);
+        console.log('useAuth: getSession finished, loading=false');
       }
-      setLoading(false);
     };
     getSession();
 
     const { data: listener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (event === 'SIGNED_OUT') {
-          setUser(null);
-          return;
-        }
-        const sessionUser = session?.user;
-        if (sessionUser?.email && sessionUser?.id) {
-          await fetchUserWithRole(sessionUser.email, sessionUser.id);
-        } else {
-          setUser(null);
+        try {
+          console.log('useAuth:onAuthStateChange', event, session?.user?.email);
+          if (event === 'SIGNED_OUT') {
+            setUser(null);
+            return;
+          }
+          const sessionUser = session?.user;
+          if (sessionUser?.email && sessionUser?.id) {
+            await fetchUserWithRole(sessionUser.email, sessionUser.id);
+          } else {
+            setUser(null);
+          }
+        } catch (err) {
+          console.error('onAuthStateChange handler error', err);
         }
       },
     );
