@@ -27,6 +27,47 @@ const useAuth = () => {
   };
 
   useEffect(() => {
+    // OAuth 리다이렉트 콜백 처리: URL에 토큰/코드가 포함되어 있으면 getSessionFromUrl로 세션 회수
+    if (typeof window !== 'undefined') {
+      const href = window.location.href;
+      if (
+        href.includes('access_token') ||
+        href.includes('refresh_token') ||
+        href.includes('code=') ||
+        href.includes('provider=')
+      ) {
+        (async () => {
+          try {
+            console.log('useAuth: detected OAuth redirect, trying getSessionFromUrl');
+            const authClient: any = supabase.auth as any;
+            if (typeof authClient.getSessionFromUrl === 'function') {
+              const { data, error } = await authClient.getSessionFromUrl();
+              if (error) {
+                console.error('useAuth.getSessionFromUrl error', error);
+              } else {
+                const sessionUser = data?.session?.user;
+                if (sessionUser?.email && sessionUser?.id) {
+                  await fetchUserWithRole(sessionUser.email, sessionUser.id);
+                }
+              }
+            } else {
+              console.warn('useAuth: getSessionFromUrl not available on supabase.auth');
+            }
+          } catch (err) {
+            console.error('useAuth.getSessionFromUrl failed', err);
+          } finally {
+            // URL 정리: 해시/쿼리 제거하여 동일한 처리가 반복되지 않도록 함
+            try {
+              if (typeof window !== 'undefined') {
+                const clean = window.location.origin + window.location.pathname + window.location.search.replace(/([#?].*)/, '');
+                window.history.replaceState({}, document.title, window.location.pathname);
+              }
+            } catch (e) {}
+          }
+        })();
+      }
+    }
+
     const getSession = async () => {
       try {
         console.log('useAuth: getSession start');
