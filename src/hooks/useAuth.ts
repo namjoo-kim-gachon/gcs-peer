@@ -98,9 +98,15 @@ const useAuth = () => {
     };
   }, []);
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = async (returnUrl?: string) => {
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    const redirectTo = returnUrl
+      ? `${baseUrl}/?returnTo=${encodeURIComponent(returnUrl)}`
+      : baseUrl;
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
+      options: { redirectTo },
     });
     if (error) {
       setError(error.message);

@@ -39,17 +39,13 @@ const VotePage = () => {
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
   // 내 표시명 조회 (allowed_users)
-  const { user, loading: authLoading, signOut } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
-  // 인증 로딩이 끝났고 로그인 상태가 아니면 홈으로 리다이렉트(원래 경로를 sessionStorage에 저장)
+  // 인증 로딩이 끝났고 로그인 상태가 아니면 홈으로 리다이렉트하면서 returnTo 파라미터 전달
   useEffect(() => {
     if (!authLoading && !user) {
-      if (typeof window !== 'undefined') {
-        try {
-          sessionStorage.setItem('loginReturnTo', router.asPath ?? '/');
-        } catch {}
-      }
-      router.replace('/');
+      // 로그인하지 않은 경우 현재 경로를 포함해서 홈페이지로 리다이렉트
+      router.replace(`/?returnTo=${encodeURIComponent(router.asPath)}`);
     }
   }, [authLoading, user, router]);
 
@@ -253,22 +249,6 @@ const VotePage = () => {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  // 로그아웃 핸들러 (useAuth.signOut 사용)
-  const handleLogout = async () => {
-    try {
-      await signOut();
-    } catch (e) {
-      console.error('handleLogout signOut error', e);
-    }
-    try {
-      if (typeof window !== 'undefined')
-        sessionStorage.removeItem('loginReturnTo');
-    } catch (e) {
-      console.error('sessionStorage cleanup failed', e);
-    }
-    router.replace('/');
   };
 
   // 전문가 스타일 개선

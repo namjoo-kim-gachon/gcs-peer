@@ -25,7 +25,7 @@ const fetchSessions = async () => {
 };
 
 const SessionsPage: React.FC = () => {
-  const { user, loading, error: authError, signOut } = useAuth();
+  const { user, loading, error: authError } = useAuth();
   const router = useRouter();
   const {
     data: sessions,
@@ -109,7 +109,8 @@ const SessionsPage: React.FC = () => {
         router.replace('/');
       }
     } else if (!loading && !user) {
-      router.replace('/');
+      // 로그인하지 않은 경우 현재 경로를 포함해서 홈페이지로 리다이렉트
+      router.replace(`/?returnTo=${encodeURIComponent(router.asPath)}`);
     }
   }, [loading, user, router]);
 

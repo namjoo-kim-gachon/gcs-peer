@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import LoginButton from '../components/common/LoginButton';
 import useAuth from '../hooks/useAuth';
@@ -10,6 +10,15 @@ const Home: React.FC = () => {
   const { user } = useAuth();
   const router = useRouter();
   const [isSigningOut, setIsSigningOut] = useState(false);
+
+  // 로그인 후 returnTo 파라미터 처리
+  useEffect(() => {
+    if (user && router.query.returnTo) {
+      const returnPath = decodeURIComponent(router.query.returnTo as string);
+      // URL에서 returnTo 파라미터를 제거하면서 리다이렉트
+      router.replace(returnPath);
+    }
+  }, [user, router.query.returnTo, router]);
   const page = {
     minHeight: '100vh',
     display: 'flex',

@@ -23,23 +23,9 @@ const LoginButton: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [redirectTimeoutReached, setRedirectTimeoutReached] = useState(false);
 
-  // 로그인 성공 후 리다이렉트 처리: sessionStorage의 loginReturnTo가 있으면 해당 경로로 이동
+  // 로그인 성공 후 리다이렉트 처리: returnTo 쿼리 파라미터는 홈페이지에서 처리됨
   useEffect(() => {
     if (user) {
-      if (typeof window !== 'undefined') {
-        try {
-          const returnTo = sessionStorage.getItem('loginReturnTo');
-          if (returnTo) {
-            sessionStorage.removeItem('loginReturnTo');
-            // 페이지 이동은 router.replace로 처리
-            router.replace(returnTo);
-            return;
-          }
-        } catch (err) {
-          // 예외는 로깅해두면 디버깅에 도움됨
-          console.error('sessionStorage access failed', err);
-        }
-      }
       // 교직원은 기존 로직으로 /sessions로 이동
       if (user.isFaculty) router.push('/sessions');
       // 리다이렉트가 실패하거나 지연될 경우를 대비한 폴백: 4초 후 폴백 UI 표시
