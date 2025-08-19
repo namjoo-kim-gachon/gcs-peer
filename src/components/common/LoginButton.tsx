@@ -21,6 +21,7 @@ const LoginButton: React.FC = () => {
   const { user, loading, error, signInWithGoogle } = useAuth();
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [redirectTimeoutReached, setRedirectTimeoutReached] = useState(false);
 
   // 로그인 성공 후 리다이렉트 처리: sessionStorage의 loginReturnTo가 있으면 해당 경로로 이동
   useEffect(() => {
@@ -41,6 +42,9 @@ const LoginButton: React.FC = () => {
       }
       // 교직원은 기존 로직으로 /sessions로 이동
       if (user.isFaculty) router.push('/sessions');
+      // 리다이렉트가 실패하거나 지연될 경우를 대비한 폴백: 4초 후 폴백 UI 표시
+      const t = setTimeout(() => setRedirectTimeoutReached(true), 4000);
+      return () => clearTimeout(t);
     }
   }, [user, router]);
 
@@ -107,9 +111,33 @@ const LoginButton: React.FC = () => {
 
   // 로그인된 상태에서는 즉시 리다이렉트 로직이 돌고 있지만,
   // 시각적으로는 처리중임을 보여주는게 UX에 좋음
+  // 리다이렉트 대기 중 폴백 UI를 제공
+  if (!redirectTimeoutReached) {
+    return (
+      <div style={container}>
+        <Spinner />
+      </div>
+    );
+  }
+
+  // 폴백: 사용자가 수동으로 이동할 수 있도록 버튼 제공
   return (
     <div style={container}>
-      <Spinner />
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ marginBottom: 8 }}>리다이렉트가 지연되고 있습니다.</div>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+          <button
+            onClick={() => {
+              // 교직원 여부는 user.isFaculty를 사용
+              if (user.isFaculty) router.push('/sessions');
+              else router.replace('/');
+            }}
+            style={{ padding: '8px 12px', borderRadius: 8 }}
+          >
+            계속 이동
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
