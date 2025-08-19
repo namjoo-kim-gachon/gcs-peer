@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { User } from '../types';
 
@@ -27,6 +27,7 @@ const useAuth = () => {
   };
 
   useEffect(() => {
+    const initRef = useRef(false);
     // OAuth 리다이렉트 콜백 처리: URL에 토큰/코드가 포함되어 있으면 getSessionFromUrl로 세션 회수
     if (typeof window !== 'undefined') {
       const href = window.location.href;
@@ -81,6 +82,12 @@ const useAuth = () => {
 
     const getSession = async () => {
       try {
+        // onAuthStateChange가 이미 실행되어 초기화가 완료된 경우 불필요한 getSession 호출을 피함
+        if (initRef.current) {
+          console.log('useAuth: init already handled by onAuthStateChange, skipping getSession');
+          setLoading(false);
+          return;
+        }
         console.log('useAuth: getSession start');
         // 타임아웃 폴백: supabase.auth.getSession()가 응답하지 않으면 8초 후 폴백
         const sessionPromise = supabase.auth.getSession();
@@ -119,6 +126,7 @@ const useAuth = () => {
       async (event, session) => {
         try {
           console.log('useAuth:onAuthStateChange', event, session?.user?.email);
+          initRef.current = true;
           if (event === 'SIGNED_OUT') {
             setUser(null);
             return;
