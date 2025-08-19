@@ -41,11 +41,11 @@ const VotePage = () => {
   // 내 표시명 조회 (allowed_users)
   const { user, loading: authLoading } = useAuth();
 
-  // 인증 로딩이 끝났고 로그인 상태가 아니면 홈으로 리다이렉트하면서 returnTo 파라미터 전달
+  // 인증 로딩이 끝났고 로그인 상태가 아니면 홈으로 리다이렉트
   useEffect(() => {
     if (!authLoading && !user) {
-      // 로그인하지 않은 경우 현재 경로를 포함해서 홈페이지로 리다이렉트
-      router.replace(`/?returnTo=${encodeURIComponent(router.asPath)}`);
+      // 로그인하지 않은 경우 홈페이지로 리다이렉트
+      router.replace('/');
     }
   }, [authLoading, user, router]);
 

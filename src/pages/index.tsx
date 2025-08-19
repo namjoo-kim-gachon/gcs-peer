@@ -5,11 +5,37 @@ import useAuth from '../hooks/useAuth';
 import Spinner from '../components/common/Spinner';
 import styles from '../components/common/Button.module.css';
 import LogoutButton from '../components/common/LogoutButton';
+import ActiveSessionsList from '../components/sessions/ActiveSessionsList';
 
 const Home: React.FC = () => {
   const { user } = useAuth();
   const router = useRouter();
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [userName, setUserName] = useState<string | null>(null);
+
+  // 사용자 이름 조회
+  useEffect(() => {
+    const fetchUserName = async () => {
+      if (!user?.email) return;
+
+      try {
+        const { supabase } = await import('../utils/supabaseClient');
+        const { data, error } = await supabase
+          .from('allowed_users')
+          .select('name')
+          .eq('email', user.email)
+          .single();
+
+        if (data && !error) {
+          setUserName(data.name);
+        }
+      } catch (error) {
+        console.error('Failed to fetch user name:', error);
+      }
+    };
+
+    fetchUserName();
+  }, [user?.email]);
 
   // 로그인 후 리다이렉트 처리
   useEffect(() => {
@@ -17,9 +43,9 @@ const Home: React.FC = () => {
       console.log('Home: user logged in, checking redirect...', {
         hasReturnTo: !!router.query.returnTo,
         returnTo: router.query.returnTo,
-        isFaculty: user.isFaculty
+        isFaculty: user.isFaculty,
       });
-      
+
       if (router.query.returnTo) {
         // returnTo 파라미터가 있으면 해당 경로로 리다이렉트
         const returnPath = decodeURIComponent(router.query.returnTo as string);
@@ -71,7 +97,15 @@ const Home: React.FC = () => {
       >
         등록된 GCS 학생과 교직원만 로그인 할 수 있습니다
       </div>
+
       <div style={box}>{user ? <LogoutButton /> : <LoginButton />}</div>
+
+      {/* 학생인 경우 활성 세션 목록 표시 */}
+      {user && !user.isFaculty && userName && (
+        <div style={{ marginTop: '40px', width: '100%', maxWidth: '600px' }}>
+          <ActiveSessionsList userName={userName} />
+        </div>
+      )}
 
       <div
         style={{

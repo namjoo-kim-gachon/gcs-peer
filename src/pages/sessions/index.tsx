@@ -109,8 +109,8 @@ const SessionsPage: React.FC = () => {
         router.replace('/');
       }
     } else if (!loading && !user) {
-      // 로그인하지 않은 경우 현재 경로를 포함해서 홈페이지로 리다이렉트
-      router.replace(`/?returnTo=${encodeURIComponent(router.asPath)}`);
+      // 로그인하지 않은 경우 홈페이지로 리다이렉트
+      router.replace('/');
     }
   }, [loading, user, router]);
 

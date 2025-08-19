@@ -107,7 +107,7 @@ const useAuth = () => {
     console.log('useAuth: signInWithGoogle called', {
       returnUrl,
       baseUrl,
-      redirectTo
+      redirectTo,
     });
 
     const { error } = await supabase.auth.signInWithOAuth({
