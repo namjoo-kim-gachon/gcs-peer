@@ -5,37 +5,11 @@ import useAuth from '../hooks/useAuth';
 import Spinner from '../components/common/Spinner';
 import styles from '../components/common/Button.module.css';
 import LogoutButton from '../components/common/LogoutButton';
-import ActiveSessionsList from '../components/sessions/ActiveSessionsList';
 
 const Home: React.FC = () => {
   const { user } = useAuth();
   const router = useRouter();
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [userName, setUserName] = useState<string | null>(null);
-
-  // 사용자 이름 조회
-  useEffect(() => {
-    const fetchUserName = async () => {
-      if (!user?.email) return;
-
-      try {
-        const { supabase } = await import('../utils/supabaseClient');
-        const { data, error } = await supabase
-          .from('allowed_users')
-          .select('name')
-          .eq('email', user.email)
-          .single();
-
-        if (data && !error) {
-          setUserName(data.name);
-        }
-      } catch (error) {
-        console.error('Failed to fetch user name:', error);
-      }
-    };
-
-    fetchUserName();
-  }, [user?.email]);
 
   // 로그인 후 리다이렉트 처리
   useEffect(() => {
@@ -48,8 +22,11 @@ const Home: React.FC = () => {
         // 교직원이면 /sessions로 리다이렉트
         console.log('Home: faculty user, redirecting to /sessions');
         router.push('/sessions');
+      } else {
+        // 학생이면 /vote로 리다이렉트
+        console.log('Home: student user, redirecting to /vote');
+        router.push('/vote');
       }
-      // 일반 학생이면 홈페이지에 머무름
     }
   }, [user, router]);
   const page = {
@@ -92,13 +69,6 @@ const Home: React.FC = () => {
       </div>
 
       <div style={box}>{user ? <LogoutButton /> : <LoginButton />}</div>
-
-      {/* 학생인 경우 활성 세션 목록 표시 */}
-      {user && !user.isFaculty && userName && (
-        <div style={{ marginTop: '40px', width: '100%', maxWidth: '600px' }}>
-          <ActiveSessionsList userName={userName} />
-        </div>
-      )}
 
       <div
         style={{

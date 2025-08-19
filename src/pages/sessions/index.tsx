@@ -5,7 +5,6 @@ import { supabase } from '../../utils/supabaseClient';
 import { Session } from '../../types';
 import useAuth from '../../hooks/useAuth';
 import PageHeader from '../../components/common/PageHeader';
-import EmptyState from '../../components/common/EmptyState';
 import ErrorBanner from '../../components/common/ErrorBanner';
 import Spinner from '../../components/common/Spinner';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
@@ -182,7 +181,9 @@ const SessionsPage: React.FC = () => {
             onDelete={(session) => setDeleteId(session.id)}
           />
         ) : (
-          <EmptyState message="세션이 없습니다. 우측 상단 버튼을 눌러 생성하세요." />
+          <div style={{ textAlign: 'center', color: '#888', margin: '40px 0' }}>
+            세션이 없습니다. 우측 상단 버튼을 눌러 생성하세요.
+          </div>
         )}
         <SessionFormModal
           open={formOpen}

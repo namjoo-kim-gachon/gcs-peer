@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useRef } from 'react';
 import { useRouter } from 'next/router';
-import useAuth from '../../hooks/useAuth';
-import { supabase } from '../../utils/supabaseClient';
-import Spinner from '../../components/common/Spinner';
-import ErrorBanner from '../../components/common/ErrorBanner';
-import PageHeader from '../../components/common/PageHeader';
+import useAuth from '../hooks/useAuth';
+import { supabase } from '../utils/supabaseClient';
+import Spinner from '../components/common/Spinner';
+import ErrorBanner from '../components/common/ErrorBanner';
+import PageHeader from '../components/common/PageHeader';
 
 interface TeamMember {
   teamName: string;
@@ -16,9 +16,7 @@ const VotePage = () => {
   // 브라우저 환경에서의 setInterval 반환은 number이므로 number | null로 변경
   const pollIntervalRef = useRef<number | null>(null);
   const router = useRouter();
-  const { sessionId } = router.query;
-  // sessionId를 항상 string으로 사용하기 위해 정규화
-  const sid = Array.isArray(sessionId) ? sessionId[0] : sessionId;
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionName, setSessionName] = useState<string | null>(null);
   const [sessionStatus, setSessionStatus] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,6 +39,32 @@ const VotePage = () => {
   // 내 표시명 조회 (allowed_users)
   const { user, loading: authLoading } = useAuth();
 
+  // 사용자 이름 조회
+  useEffect(() => {
+    const fetchUserName = async () => {
+      if (!user?.email) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('allowed_users')
+          .select('name')
+          .eq('email', user.email)
+          .single();
+
+        if (data && !error) {
+          setMyName(data.name);
+        } else {
+          throw new Error('사용자 정보 조회 실패');
+        }
+      } catch (e: any) {
+        setError(e.message);
+        setLoading(false);
+      }
+    };
+
+    fetchUserName();
+  }, [user?.email]);
+
   // 인증 로딩이 끝났고 로그인 상태가 아니면 홈으로 리다이렉트
   useEffect(() => {
     if (!authLoading && !user) {
@@ -49,44 +73,65 @@ const VotePage = () => {
     }
   }, [authLoading, user, router]);
 
+  // 내 활성 세션 조회 (첫 번째 세션 사용)
   useEffect(() => {
-    async function fetchMyName() {
-      if (!user?.email) return;
+    const fetchActiveSession = async () => {
+      if (!myName) return;
+
       try {
-        const { data, error } = await supabase
-          .from('allowed_users')
-          .select('name')
-          .eq('email', user.email)
-          .single();
-        if (error || !data) throw new Error('사용자 정보 조회 실패');
-        setMyName(data.name);
+        const response = await fetch(
+          `/api/sessions/my-active?user_name=${encodeURIComponent(myName)}`,
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const sessions = data.sessions || [];
+
+        if (sessions.length > 0) {
+          // 첫 번째 활성 세션 사용
+          const firstSession = sessions[0];
+          setSessionId(String(firstSession.session_id));
+          setSessionName(firstSession.session_name);
+        } else {
+          // 활성 세션이 없는 경우 sessionId를 null로 설정하고 로딩 종료
+          setSessionId(null);
+          setLoading(false);
+        }
       } catch (e: any) {
-        setError(e.message);
-        // 에러 발생 시 로딩 상태를 해제하여 스피너가 영구히 표시되는 상황 방지
+        console.error('Failed to fetch active sessions:', e);
+        setError('활성 세션을 조회하는 중 오류가 발생했습니다.');
         setLoading(false);
       }
-    }
-    fetchMyName();
-  }, [user]);
+    };
+
+    fetchActiveSession();
+  }, [myName, router]);
 
   // 세션 정보 및 팀원 목록 조회 함수 분리
   const fetchSessionAndTeam = async () => {
+    if (!sessionId) return;
+
     setLoading(true);
     try {
-      // 세션 정보 조회 (정규화된 sid 사용)
-      const sessionRes = await fetch(`/api/sessions/info?sessionId=${sid}`);
+      // 세션 정보 조회
+      const sessionRes = await fetch(
+        `/api/sessions/info?sessionId=${sessionId}`,
+      );
       if (sessionRes.ok) {
         const sessionData = await sessionRes.json();
-        setSessionName(sessionData.name ?? String(sid));
+        setSessionName(sessionData.name ?? String(sessionId));
         setSessionStatus(
           typeof sessionData.status === 'number' ? sessionData.status : null,
         );
       } else {
-        setSessionName(String(sid));
+        setSessionName(String(sessionId));
         setSessionStatus(null);
       }
       // 팀원 목록 조회
-      const teamRes = await fetch(`/api/sessions/teams?sessionId=${sid}`);
+      const teamRes = await fetch(`/api/sessions/teams?sessionId=${sessionId}`);
       if (!teamRes.ok) throw new Error('팀원 정보 조회 실패');
       const teamData = await teamRes.json();
       setTeamMembers(teamData);
@@ -135,15 +180,15 @@ const VotePage = () => {
     }
   };
 
-  // 최초 및 myName 변경 시 실행 (sid 사용)
+  // sessionId와 myName이 설정되면 세션 정보 조회
   useEffect(() => {
-    if (!sid || !myName) return;
+    if (!sessionId || !myName) return;
     fetchSessionAndTeam();
-  }, [sid, myName]);
+  }, [sessionId, myName]);
 
   // Day 2: 기존 리뷰 프리필
   useEffect(() => {
-    if (!sid || !myName || !myTeam) return;
+    if (!sessionId || !myName || !myTeam) return;
     async function fetchMyReviews() {
       try {
         const res = await fetch('/api/reviews/my', {
@@ -151,7 +196,7 @@ const VotePage = () => {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ sessionId: sid, user_name: myName }),
+          body: JSON.stringify({ sessionId: sessionId, user_name: myName }),
         });
         if (!res.ok) return;
         const reviewData = await res.json();
@@ -182,17 +227,145 @@ const VotePage = () => {
       }
     }
     fetchMyReviews();
-  }, [sid, myName, myTeam]);
+  }, [sessionId, myName, myTeam]);
 
   // myTeam이 없고 로딩이 끝났다면 렌더가 아닌 effect에서 리다이렉트 처리
   useEffect(() => {
-    if (!loading && !error && !myTeam) {
+    if (!loading && !error && !myTeam && sessionId) {
       router.replace('/');
     }
-  }, [loading, error, myTeam, router]);
+  }, [loading, error, myTeam, sessionId, router]);
 
   if (loading) return <Spinner />;
   if (error) return <ErrorBanner error={error} />;
+
+  // sessionId가 없으면 세션이 없다는 메시지
+  if (!sessionId) {
+    return (
+      <div
+        style={{
+          maxWidth: 960,
+          width: '100%',
+          margin: '0 auto',
+          boxSizing: 'border-box' as const,
+          background: '#fff',
+          borderRadius: 0,
+          boxShadow: 'none',
+          padding: '16px',
+          minHeight: '100vh',
+        }}
+      >
+        <PageHeader title="GCS 피어 평가" />
+        <div
+          style={{
+            minHeight: '320px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <div
+            style={{
+              background: '#fff',
+              borderRadius: 16,
+              boxShadow: '0 4px 24px rgba(25, 118, 210, 0.08)',
+              border: '1px solid #e3eafc',
+              padding: '48px 32px',
+              maxWidth: 420,
+              textAlign: 'center',
+            }}
+          >
+            <div
+              style={{
+                fontSize: 20,
+                color: '#333',
+                marginBottom: 16,
+                fontWeight: 500,
+                lineHeight: 1.5,
+              }}
+            >
+              참여할 수 있는 피어 평가가 없습니다.
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                gap: 12,
+                justifyContent: 'center',
+                flexWrap: 'wrap',
+              }}
+            >
+              <button
+                style={{
+                  padding: '10px 28px',
+                  fontSize: 16,
+                  fontWeight: 600,
+                  background: '#1976d2',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 8,
+                  boxShadow: '0 2px 8px rgba(25,118,210,0.08)',
+                  letterSpacing: 1,
+                  transition: 'background 0.2s',
+                  cursor: 'pointer',
+                }}
+                onClick={() => window.location.reload()}
+              >
+                새로고침
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* 카피라이트 영역 */}
+        <div
+          style={{
+            width: '100%',
+            textAlign: 'center',
+            marginTop: 32,
+            color: '#aaa',
+            fontSize: 13,
+            padding: '16px 0 4px 0',
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              textAlign: 'center',
+              marginTop: 40,
+              color: '#555',
+              fontSize: 15,
+              fontWeight: 500,
+              letterSpacing: 1,
+              opacity: 0.7,
+              borderTop: '1px solid #eee',
+              padding: '18px 0 8px 0',
+              background: 'linear-gradient(180deg, #fff 80%, #f7f7f7 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+            }}
+          >
+            <span
+              style={{
+                fontSize: 16,
+                fontWeight: 700,
+                color: '#1976d2',
+                opacity: 0.8,
+              }}
+            >
+              ⓒ
+            </span>
+            <span style={{ fontSize: 15, fontWeight: 500 }}>
+              Gachon Cocone School 2025
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // myTeam 타입 가드: myTeam이 없으면 렌더 중단 (useEffect에서 리다이렉트가 처리됨)
   if (!myTeam) {
@@ -226,7 +399,11 @@ const VotePage = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ sessionId: sid, entries, user_name: myName }),
+        body: JSON.stringify({
+          sessionId: sessionId,
+          entries,
+          user_name: myName,
+        }),
       });
       if (!res.ok) {
         // 403 Forbidden이면 투표참여 불가 화면으로 이동
@@ -312,7 +489,7 @@ const VotePage = () => {
         }}
       >
         <div style={{ fontSize: 16, fontWeight: 700, color: '#1976d2' }}>
-          {sessionName ?? sid}
+          {sessionName ?? sessionId}
         </div>
         <div style={{ fontSize: 16, fontWeight: 700, color: '#333' }}>
           {myTeam?.teamName}
