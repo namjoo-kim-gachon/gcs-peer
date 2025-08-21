@@ -1,11 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { Session } from '../../types';
 import Spinner from '../common/Spinner'; // 스피너 컴포넌트 임포트
 
 interface SessionFormModalProps {
   open: boolean;
   initial?: Partial<Session>;
-  onSubmit: (data: { name: string; description?: string; teams?: any }) => void;
+  onSubmit: (data: {
+    name: string;
+    description?: string;
+    teams?: any;
+  }) => Promise<void>;
   onClose: () => void;
 }
 
@@ -26,6 +30,8 @@ const SessionFormModal: React.FC<SessionFormModalProps> = ({
   const [availableUsers, setAvailableUsers] = useState<string[]>([]);
   const [dbTeamText, setDbTeamText] = useState('');
   const [loadingDbTeam, setLoadingDbTeam] = useState(false);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [isSubmittingForm, setIsSubmittingForm] = useState(false);
 
   // allowed_users 목록을 Supabase에서 조회
   React.useEffect(() => {
@@ -70,34 +76,70 @@ const SessionFormModal: React.FC<SessionFormModalProps> = ({
 
   // initial 값이나 open이 바뀔 때마다 입력값 및 상태 초기화
   React.useEffect(() => {
-    setName(initial?.name || '');
-    setDescription(initial?.description || '');
-    if (initial?.id) {
-      setTeamText(dbTeamText);
-    } else {
-      setTeamText('');
+    if (!open) return; // 모달이 닫혀있으면 무시
+
+    // 상태 초기화를 한 번에 처리
+    const initializeForm = () => {
+      setName(initial?.name || '');
+      setDescription(initial?.description || '');
+      if (initial?.id) {
+        setTeamText(dbTeamText);
+      } else {
+        setTeamText('');
+      }
+      setLoading(false);
+      setWarning(null);
+      setError('');
+      setIsSubmittingForm(false);
+    };
+
+    // debounce를 적용하여 빠른 연속 변경 방지
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
     }
-    setLoading(false);
-    setWarning(null);
-    setError('');
+
+    debounceTimerRef.current = setTimeout(initializeForm, 100);
+
+    // cleanup
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
   }, [initial, dbTeamText, open]);
 
-  const handleEdit = async () => {
+  const handleEdit = useCallback(async () => {
     console.log('저장 버튼 클릭됨');
+
+    // debounce 처리
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    // 이미 제출 중이면 무시
+    if (isSubmittingForm) {
+      console.log('이미 제출 중입니다.');
+      return;
+    }
+
+    setIsSubmittingForm(true);
     setLoading(true);
     setWarning(null);
-    if (name.length < 1 || name.length > 100) {
-      setWarning('이름은 1~100자 필수입니다.');
-      setLoading(false);
-      return;
-    }
-    if (description.length > 500) {
-      setWarning('설명은 최대 500자입니다.');
-      setLoading(false);
-      return;
-    }
+    setError('');
+
     try {
+      // 입력값 검증
+      if (name.length < 1 || name.length > 100) {
+        setWarning('이름은 1~100자 필수입니다.');
+        return;
+      }
+      if (description.length > 500) {
+        setWarning('설명은 최대 500자입니다.');
+        return;
+      }
+
       let teams = undefined;
+
       // db에서 불러온 팀구성과 현재 입력값이 다를 때만 파싱 API 호출
       if (teamText !== dbTeamText) {
         setCheckingTeam(true);
@@ -113,22 +155,37 @@ const SessionFormModal: React.FC<SessionFormModalProps> = ({
         setCheckingTeam(false);
         setLastCheckedTeamText(teamText);
         console.log('팀 파싱 결과:', parseJson);
+
         if (parseJson.warnings && parseJson.warnings.length > 0) {
           setWarning(parseJson.warnings.join('\n'));
           return;
         }
         teams = parseJson.teams;
       }
-      // 성공 처리 (예: UI 갱신, 모달 닫기 등)
-      onSubmit({ name, description, teams });
-      // 입력값 초기화는 모달이 닫힐 때만 수행
-    } catch (err) {
+
+      // 부모 컴포넌트의 onSubmit 호출 (await로 완료 대기)
+      await onSubmit({ name, description, teams });
+
+      console.log('세션 저장 완료');
+      // 성공 시에만 입력값 초기화는 부모에서 모달이 닫힐 때 처리됨
+    } catch (err: any) {
+      console.error('저장 중 오류:', err);
+      setError(err.message || '처리 중 오류가 발생했습니다.');
       setWarning('처리 중 오류 발생: ' + String(err));
       setCheckingTeam(false);
     } finally {
       setLoading(false);
+      setIsSubmittingForm(false);
     }
-  };
+  }, [
+    name,
+    description,
+    teamText,
+    dbTeamText,
+    availableUsers,
+    onSubmit,
+    isSubmittingForm,
+  ]);
 
   if (!open) return null;
 
@@ -188,7 +245,7 @@ const SessionFormModal: React.FC<SessionFormModalProps> = ({
           세션 {initial?.id ? '수정하기' : '만들기'}
         </h2>
 
-        {(loading || checkingTeam || loadingDbTeam) && (
+        {(loading || checkingTeam || loadingDbTeam || isSubmittingForm) && (
           <div
             style={{
               display: 'flex',
@@ -206,7 +263,9 @@ const SessionFormModal: React.FC<SessionFormModalProps> = ({
                 ? '팀 구성 불러오는 중...'
                 : checkingTeam
                   ? '팀 구성 확인 중...'
-                  : '저장 중...'}
+                  : isSubmittingForm
+                    ? '제출 중...'
+                    : '저장 중...'}
             </span>
           </div>
         )}
@@ -261,7 +320,7 @@ const SessionFormModal: React.FC<SessionFormModalProps> = ({
           />
         </div>
 
-        {warning && (
+        {(warning || error) && (
           <div
             style={{
               background: '#fffbe6',
@@ -274,7 +333,7 @@ const SessionFormModal: React.FC<SessionFormModalProps> = ({
               whiteSpace: 'pre-wrap',
             }}
           >
-            {warning}
+            {error || warning}
           </div>
         )}
 
@@ -299,7 +358,9 @@ const SessionFormModal: React.FC<SessionFormModalProps> = ({
               color: '#fff',
               boxShadow: '0 2px 8px rgba(25,118,210,0.2)',
             }}
-            disabled={loading || checkingTeam || loadingDbTeam}
+            disabled={
+              loading || checkingTeam || loadingDbTeam || isSubmittingForm
+            }
           >
             저장
           </button>

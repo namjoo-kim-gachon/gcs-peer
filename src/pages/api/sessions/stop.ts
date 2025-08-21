@@ -10,7 +10,7 @@ export default async function handler(
   }
 
   try {
-    const { sessionId } = JSON.parse(req.body);
+    const { sessionId } = req.body;
 
     if (!sessionId || isNaN(Number(sessionId))) {
       return res.status(400).json({ error: 'Invalid session ID' });

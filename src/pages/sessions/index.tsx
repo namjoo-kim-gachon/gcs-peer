@@ -36,6 +36,7 @@ const SessionsPage: React.FC = () => {
   const [editSession, setEditSession] = useState<Session | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [actionError, setActionError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   interface SessionFormValues {
     name: string;
@@ -43,9 +44,24 @@ const SessionsPage: React.FC = () => {
     teams?: any;
   }
   const handleCreateOrEdit = async (values: SessionFormValues) => {
+    console.log('=== 세션 저장 시작 ===');
     console.log('폼 입력값:', values);
+    console.log('수정 모드:', !!editSession, editSession?.id);
+
+    // 중복 제출 방지
+    if (isSubmitting) {
+      console.log('이미 제출 중입니다.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    // 에러 상태 초기화
+    setActionError('');
+
     try {
       let sessionId = editSession?.id;
+      let sessionSaved = false;
+
       // 세션 저장
       if (editSession) {
         const { error } = await supabase
@@ -54,6 +70,7 @@ const SessionsPage: React.FC = () => {
           .eq('id', editSession.id);
         if (error) throw error;
         sessionId = editSession.id;
+        sessionSaved = true;
         setEditSession(null);
       } else {
         const { data, error } = await supabase
@@ -63,28 +80,51 @@ const SessionsPage: React.FC = () => {
           .single();
         if (error) throw error;
         sessionId = data?.id;
+        sessionSaved = true;
       }
-      setFormOpen(false); // 성공 시 모달 닫기
-      console.log('form close 호출됨');
+
+      console.log('세션 저장 성공, sessionId:', sessionId);
+
       // 팀 정보가 있으면 DB 반영
       if (values.teams && sessionId) {
-        const updateRes = await fetch('/api/teams/update', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sessionId,
-            teams: values.teams,
-          }),
-        });
-        const updateJson = await updateRes.json();
-        console.log('팀 업데이트 결과:', updateJson);
-        if (updateRes.status !== 200) {
-          throw new Error(updateJson.error || '팀 DB 반영 실패');
+        console.log('팀 업데이트 시작, teams 개수:', values.teams.length);
+        try {
+          const updateRes = await fetch('/api/teams/update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sessionId,
+              teams: values.teams,
+            }),
+          });
+          const updateJson = await updateRes.json();
+          console.log('팀 업데이트 결과:', updateJson);
+          if (updateRes.status !== 200) {
+            throw new Error(updateJson.error || '팀 DB 반영 실패');
+          }
+          console.log('팀 업데이트 성공');
+        } catch (teamError: any) {
+          // 팀 업데이트는 실패했지만 세션은 저장됨을 사용자에게 알림
+          console.error('팀 업데이트 실패:', teamError);
+          setActionError(
+            `세션은 저장되었지만 팀 구성 저장 중 오류가 발생했습니다: ${teamError.message}`,
+          );
+          // 세션 목록은 업데이트하되 모달은 닫지 않음
+          await mutate();
+          return;
         }
       }
-      mutate();
+
+      // 모든 작업이 성공한 경우에만 모달 닫기
+      setFormOpen(false);
+      console.log('=== 모든 작업 완료 ===');
+      await mutate();
     } catch (e: any) {
+      console.error('=== 저장 실패 ===', e);
       setActionError(e.message);
+      // 모달은 열린 상태로 유지하여 사용자가 다시 시도할 수 있게 함
+    } finally {
+      setIsSubmitting(false);
     }
   };
   const handleDelete = async () => {
@@ -190,8 +230,12 @@ const SessionsPage: React.FC = () => {
           initial={editSession || undefined}
           onSubmit={handleCreateOrEdit}
           onClose={() => {
-            setFormOpen(false);
-            setEditSession(null);
+            // 안전한 상태 초기화
+            if (!isSubmitting) {
+              setFormOpen(false);
+              setEditSession(null);
+              setActionError(''); // 에러 상태도 초기화
+            }
           }}
         />
         <ConfirmDialog
