@@ -646,28 +646,69 @@ const VotePage = () => {
                   onChange={(e) => {
                     const newValue = Number(e.target.value);
                     const prevRates = { ...contribRates };
-                    const oldValue = prevRates[member] ?? 0;
-                    const diff = newValue - oldValue;
-                    const otherMembers = myTeam.members.filter(
-                      (m) => m !== member,
-                    );
-                    let otherTotal = otherMembers.reduce(
-                      (sum, m) => sum + (prevRates[m] ?? 0),
-                      0,
-                    );
-                    let newRates = { ...prevRates, [member]: newValue };
-                    // 조정분을 나머지 팀원에게 고루 분배
-                    if (otherMembers.length > 0 && diff !== 0) {
-                      let remain = 100 - newValue;
-                      // 고르게 분배
-                      const even = Math.floor(remain / otherMembers.length);
-                      let leftover = remain - even * otherMembers.length;
-                      otherMembers.forEach((m, idx) => {
-                        newRates[m] = even + (leftover > 0 ? 1 : 0);
-                        leftover--;
-                      });
+
+                    if (myTeam.members.length > 0) {
+                      // 현재 조정 중인 팀원의 인덱스 찾기
+                      const currentIndex = myTeam.members.indexOf(member);
+
+                      // 앞에 있는 팀원들 (고정)
+                      const beforeMembers = myTeam.members.slice(
+                        0,
+                        currentIndex,
+                      );
+
+                      // 뒤에 있는 팀원들 (나머지 배분 대상)
+                      const afterMembers = myTeam.members.slice(
+                        currentIndex + 1,
+                      );
+
+                      if (afterMembers.length > 0) {
+                        // 앞에 있는 팀원들의 총합 계산 (고정값들)
+                        const beforeTotal = beforeMembers.reduce(
+                          (sum, m) => sum + (prevRates[m] ?? 0),
+                          0,
+                        );
+
+                        // 뒤 팀원들이 최소 0%씩 가질 수 있도록 최대값 제한
+                        const maxPossibleValue = 100 - beforeTotal;
+                        const adjustedNewValue = Math.min(
+                          newValue,
+                          maxPossibleValue,
+                        );
+
+                        // 나머지 값 계산
+                        let remain = 100 - beforeTotal - adjustedNewValue;
+
+                        // 뒤 팀원들에게 균등 분배
+                        const even = Math.floor(remain / afterMembers.length);
+                        let leftover = remain - even * afterMembers.length;
+
+                        let newRates = {
+                          ...prevRates,
+                          [member]: adjustedNewValue,
+                        };
+                        afterMembers.forEach((m, idx) => {
+                          newRates[m] = even + (leftover > 0 ? 1 : 0);
+                          leftover--;
+                        });
+                        setContribRates(newRates);
+                      } else if (currentIndex === myTeam.members.length - 1) {
+                        // 마지막 팀원인 경우: 나머지 모든 값을 자동으로 받음
+                        const othersTotal = myTeam.members
+                          .slice(0, currentIndex)
+                          .reduce((sum, m) => sum + (prevRates[m] ?? 0), 0);
+                        const adjustedNewValue = Math.max(0, 100 - othersTotal);
+                        let newRates = {
+                          ...prevRates,
+                          [member]: adjustedNewValue,
+                        };
+                        setContribRates(newRates);
+                      } else {
+                        // 다른 경우에도 기본 처리
+                        let newRates = { ...prevRates, [member]: newValue };
+                        setContribRates(newRates);
+                      }
                     }
-                    setContribRates(newRates);
                   }}
                   style={sliderStyle}
                 />
