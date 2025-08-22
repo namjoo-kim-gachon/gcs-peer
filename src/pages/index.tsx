@@ -54,7 +54,7 @@ const Home: React.FC = () => {
 
   return (
     <div style={page}>
-      <div style={title}>GCS 피어 평가</div>
+      <div style={title}>GCS 피어 리뷰</div>
       <div
         style={{
           fontSize: 18,

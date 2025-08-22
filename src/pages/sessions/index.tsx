@@ -170,7 +170,7 @@ const SessionsPage: React.FC = () => {
         <PageHeader
           title={
             <>
-              GCS 피어 평가 - 세션 리스트
+              GCS 피어 리뷰 - 세션 리스트
               <button
                 onClick={() => {
                   setEditSession(null);

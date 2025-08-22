@@ -578,7 +578,7 @@ export default function SessionStatusPage() {
                   textAlign: 'center',
                 }}
               >
-                평가 결과 통계
+                리뷰 결과 통계
               </h3>
               {voteStats ? (
                 <div
@@ -593,7 +593,7 @@ export default function SessionStatusPage() {
                         textAlign: 'center',
                       }}
                     >
-                      기여율 평가 비교
+                      기여율 비교
                     </h4>
                     <div
                       style={{
@@ -618,7 +618,7 @@ export default function SessionStatusPage() {
                             fontWeight: 600,
                           }}
                         >
-                          자기 평가
+                          자기 기여율
                         </div>
                         <div
                           style={{
@@ -667,7 +667,7 @@ export default function SessionStatusPage() {
                             fontWeight: 600,
                           }}
                         >
-                          동료 평가
+                          동료 기여율
                         </div>
                         <div
                           style={{
@@ -711,7 +711,7 @@ export default function SessionStatusPage() {
                         textAlign: 'center',
                       }}
                     >
-                      적합도 평가 결과
+                      적합도 결과
                     </h4>
                     <div
                       style={{

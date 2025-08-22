@@ -255,7 +255,7 @@ const VotePage = () => {
           minHeight: '100vh',
         }}
       >
-        <PageHeader title="GCS 피어 평가" />
+        <PageHeader title="GCS 피어 리뷰" />
         <div
           style={{
             minHeight: '320px',
@@ -285,7 +285,7 @@ const VotePage = () => {
                 lineHeight: 1.5,
               }}
             >
-              참여할 수 있는 피어 평가가 없습니다.
+              참여할 수 있는 피어 리뷰가 없습니다.
             </div>
 
             <div
@@ -408,7 +408,7 @@ const VotePage = () => {
       if (!res.ok) {
         // 403 Forbidden이면 투표참여 불가 화면으로 이동
         if (res.status === 403) {
-          setSubmitError('평가가 종료되어 제출하지 못했습니다');
+          setSubmitError('리뷰가 종료되어 제출하지 못했습니다');
           setTimeout(() => {
             setSubmitError(null);
             setSubmitSuccess(false);
@@ -477,7 +477,7 @@ const VotePage = () => {
 
   return (
     <div style={cardStyle}>
-      <PageHeader title="GCS 피어 평가" />
+      <PageHeader title="GCS 피어 리뷰" />
       <div
         style={{
           display: 'flex',
@@ -526,7 +526,7 @@ const VotePage = () => {
                 lineHeight: 1.5,
               }}
             >
-              참여할 수 있는 피어 평가가 없습니다.
+              참여할 수 있는 피어 리뷰가 없습니다.
             </div>
 
             <div
