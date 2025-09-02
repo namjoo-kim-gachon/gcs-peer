@@ -13,14 +13,14 @@ import SessionFormModal from '../../components/sessions/SessionFormModal';
 import { FaPlus } from 'react-icons/fa';
 import LogoutButton from '../../components/common/LogoutButton';
 
-const fetchSessions = async () => {
+const fetchSessions = async (): Promise<Session[]> => {
   const { data, error } = await supabase
     .from('sessions')
     .select('*')
     .order('created_at', { ascending: false })
     .limit(100);
   if (error) throw error;
-  return data;
+  return data || [];
 };
 
 const SessionsPage: React.FC = () => {
@@ -31,7 +31,7 @@ const SessionsPage: React.FC = () => {
     error,
     isLoading,
     mutate,
-  } = useSWR(['sessions'], fetchSessions);
+  } = useSWR<Session[]>(['sessions'], fetchSessions);
   const [formOpen, setFormOpen] = useState(false);
   const [editSession, setEditSession] = useState<Session | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -43,34 +43,27 @@ const SessionsPage: React.FC = () => {
     description?: string;
     teams?: any;
   }
-  const handleCreateOrEdit = async (values: SessionFormValues) => {
-    console.log('=== 세션 저장 시작 ===');
-    console.log('폼 입력값:', values);
-    console.log('수정 모드:', !!editSession, editSession?.id);
 
+  const handleCreateOrEdit = async (values: SessionFormValues) => {
     // 중복 제출 방지
-    if (isSubmitting) {
-      console.log('이미 제출 중입니다.');
-      return;
-    }
+    if (isSubmitting) return;
 
     setIsSubmitting(true);
-    // 에러 상태 초기화
     setActionError('');
 
     try {
-      let sessionId = editSession?.id;
-      let sessionSaved = false;
+      let sessionId = editSession?.id ?? null;
 
-      // 세션 저장
+      // 수정: 업데이트된 row를 반환받도록 .select().single() 사용
       if (editSession) {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('sessions')
           .update({ name: values.name, description: values.description })
-          .eq('id', editSession.id);
+          .eq('id', editSession.id)
+          .select()
+          .single();
         if (error) throw error;
-        sessionId = editSession.id;
-        sessionSaved = true;
+        sessionId = data?.id ?? sessionId;
         setEditSession(null);
       } else {
         const { data, error } = await supabase
@@ -79,66 +72,53 @@ const SessionsPage: React.FC = () => {
           .select()
           .single();
         if (error) throw error;
-        sessionId = data?.id;
-        sessionSaved = true;
+        sessionId = data?.id ?? sessionId;
       }
 
-      console.log('세션 저장 성공, sessionId:', sessionId);
-
-      // 팀 정보가 있으면 DB 반영
+      // 팀 정보가 있으면 API로 전달하여 DB 반영
       if (values.teams && sessionId) {
-        console.log('팀 업데이트 시작, teams 개수:', values.teams.length);
         try {
           const updateRes = await fetch('/api/teams/update', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              sessionId,
-              teams: values.teams,
-            }),
+            body: JSON.stringify({ sessionId, teams: values.teams }),
           });
-          const updateJson = await updateRes.json();
-          console.log('팀 업데이트 결과:', updateJson);
-          if (updateRes.status !== 200) {
+          const updateJson = await updateRes.json().catch(() => ({}));
+          if (!updateRes.ok) {
             throw new Error(updateJson.error || '팀 DB 반영 실패');
           }
-          console.log('팀 업데이트 성공');
         } catch (teamError: any) {
-          // 팀 업데이트는 실패했지만 세션은 저장됨을 사용자에게 알림
-          console.error('팀 업데이트 실패:', teamError);
           setActionError(
-            `세션은 저장되었지만 팀 구성 저장 중 오류가 발생했습니다: ${teamError.message}`,
+            `세션은 저장되었지만 팀 구성 저장 중 오류가 발생했습니다: ${teamError?.message ?? String(teamError)}`,
           );
-          // 세션 목록은 업데이트하되 모달은 닫지 않음
+          // 목록만 갱신하고 모달은 닫지 않음
           await mutate();
           return;
         }
       }
 
-      // 모든 작업이 성공한 경우에만 모달 닫기
+      // 모든 작업 성공 시 모달 닫고 목록 갱신
       setFormOpen(false);
-      console.log('=== 모든 작업 완료 ===');
       await mutate();
     } catch (e: any) {
-      console.error('=== 저장 실패 ===', e);
-      setActionError(e.message);
-      // 모달은 열린 상태로 유지하여 사용자가 다시 시도할 수 있게 함
+      setActionError(e?.message ?? String(e));
     } finally {
       setIsSubmitting(false);
     }
   };
+
   const handleDelete = async () => {
-    if (!deleteId) return;
+    if (deleteId == null) return;
     try {
       const { error } = await supabase
         .from('sessions')
         .delete()
         .eq('id', deleteId);
       if (error) throw error;
-      mutate();
+      await mutate();
       setDeleteId(null);
     } catch (e: any) {
-      setActionError(e.message);
+      setActionError(e?.message ?? String(e));
     }
   };
 
@@ -148,7 +128,6 @@ const SessionsPage: React.FC = () => {
         router.replace('/');
       }
     } else if (!loading && !user) {
-      // 로그인하지 않은 경우 홈페이지로 리다이렉트
       router.replace('/');
     }
   }, [loading, user, router]);
@@ -203,7 +182,9 @@ const SessionsPage: React.FC = () => {
             <LogoutButton />
           </div>
         </PageHeader>
+
         {actionError && <ErrorBanner error={actionError} />}
+
         {isLoading ? (
           <div style={{ textAlign: 'center', padding: 40 }}>
             <Spinner />
@@ -225,19 +206,20 @@ const SessionsPage: React.FC = () => {
             세션이 없습니다. 우측 상단 버튼을 눌러 생성하세요.
           </div>
         )}
+
         <SessionFormModal
           open={formOpen}
           initial={editSession || undefined}
           onSubmit={handleCreateOrEdit}
           onClose={() => {
-            // 안전한 상태 초기화
             if (!isSubmitting) {
               setFormOpen(false);
               setEditSession(null);
-              setActionError(''); // 에러 상태도 초기화
+              setActionError('');
             }
           }}
         />
+
         <ConfirmDialog
           open={!!deleteId}
           title="세션 삭제"
@@ -247,7 +229,6 @@ const SessionsPage: React.FC = () => {
         />
       </div>
 
-      {/* 화면 하단 고정 카피라이트 영역 */}
       <div
         style={{
           position: 'fixed',
