@@ -5,30 +5,39 @@ import useAuth from '../hooks/useAuth';
 import Spinner from '../components/common/Spinner';
 import styles from '../components/common/Button.module.css';
 import LogoutButton from '../components/common/LogoutButton';
+import ErrorBanner from '../components/common/ErrorBanner';
 
 const Home: React.FC = () => {
-  const { user } = useAuth();
+  const { user, loading, error } = useAuth();
   const router = useRouter();
-  const [isSigningOut, setIsSigningOut] = useState(false);
 
-  // 로그인 후 리다이렉트 처리
+  // 로그인 후 리다이렉트 처리 (로딩이 끝난 후에만 실행)
   useEffect(() => {
-    if (user) {
-      console.log('Home: user logged in, checking redirect...', {
-        isFaculty: user.isFaculty,
-      });
-
-      if (user.isFaculty) {
-        // 교직원이면 /sessions로 리다이렉트
-        console.log('Home: faculty user, redirecting to /sessions');
-        router.push('/sessions');
-      } else {
-        // 학생이면 /vote로 리다이렉트
-        console.log('Home: student user, redirecting to /vote');
-        router.push('/vote');
-      }
+    if (loading) {
+      // 아직 초기화 중이면 리다이렉트하지 않음
+      return;
     }
-  }, [user, router]);
+
+    if (!user) return;
+
+    console.log('Home: user logged in, checking redirect...', {
+      isFaculty: user.isFaculty,
+      returnTo: router.query.returnTo,
+    });
+
+    // 쿼리로 전달된 returnTo가 있으면 우선 사용
+    const returnTo =
+      typeof router.query.returnTo === 'string'
+        ? router.query.returnTo
+        : undefined;
+    const target = returnTo ?? (user.isFaculty ? '/sessions' : '/vote');
+
+    // 현재 경로와 다를 때만 교체(replace)하여 히스토리를 더 깔끔하게 유지
+    if (router.asPath !== target) {
+      console.log(`Home: redirecting to ${target} (replace)`);
+      router.replace(target);
+    }
+  }, [user, loading, router]);
   const page = {
     minHeight: '100vh',
     display: 'flex',

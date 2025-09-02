@@ -12,6 +12,8 @@ const useAuth = () => {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isInitializedRef = useRef(false);
   const isMountedRef = useRef(true);
+  // 초기화 전에 도착한 세션 이벤트 보관
+  const pendingSessionRef = useRef<any | null>(null);
 
   // 에러 상태 초기화 헬퍼
   const clearError = useCallback(() => {
@@ -151,6 +153,21 @@ const useAuth = () => {
           setLoading(false);
           isInitializedRef.current = true;
           console.log('useAuth: initialization finished, loading=false');
+          // 초기화 이전에 도착한 세션 이벤트가 있었다면 처리
+          if (pendingSessionRef.current) {
+            const pending = pendingSessionRef.current;
+            pendingSessionRef.current = null;
+            const pendingUser = pending?.user;
+            if (pendingUser?.email && pendingUser?.id) {
+              console.log('useAuth: applying pending session user');
+              const postInitController = new AbortController();
+              fetchUserWithRole(
+                pendingUser.email,
+                pendingUser.id,
+                postInitController.signal,
+              );
+            }
+          }
         }
       }
     };
@@ -163,10 +180,10 @@ const useAuth = () => {
           console.log('useAuth:onAuthStateChange', event, session?.user?.email);
 
           if (!isMountedRef.current) return;
-
-          // 초기화가 완료되지 않았다면 대기
+          // 초기화가 끝나기 전에 들어온 이벤트는 보관 (중복 fetchUserWithRole 방지)
           if (!isInitializedRef.current) {
-            console.log('useAuth: waiting for initialization to complete');
+            pendingSessionRef.current = session;
+            console.log('useAuth: queued session event until init complete');
             return;
           }
 

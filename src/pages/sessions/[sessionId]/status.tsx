@@ -1,5 +1,5 @@
 import { FaPlay, FaStop, FaSync, FaArrowLeft } from 'react-icons/fa';
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { QRCodeSVG } from 'qrcode.react';
 import { supabase } from '../../../utils/supabaseClient';
@@ -14,8 +14,11 @@ export default function SessionStatusPage() {
   const { sessionId } = router.query;
   const sid = useMemo(() => {
     const v = Array.isArray(sessionId) ? sessionId[0] : sessionId;
-    return v ? Number(v) : NaN;
+    if (v === undefined) return NaN; // 존재하지 않으면 NaN
+    const n = Number(v);
+    return Number.isNaN(n) ? NaN : n; // 변환 실패 시 NaN
   }, [sessionId]);
+  const validSid = !Number.isNaN(sid); // 0도 유효한 ID로 허용
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +29,21 @@ export default function SessionStatusPage() {
   const [votedSet, setVotedSet] = useState<Set<string>>(new Set());
   const [reviews, setReviews] = useState<any[]>([]);
 
-  const voteUrl = `https://peer.1000.school`;
+  // 동적으로 생성된 투표 URL (서버 사이드 렌더링 시에는 빈 문자열)
+  const voteUrl = useMemo(() => {
+    if (typeof window === 'undefined') return '';
+    if (!validSid) return '';
+    return `${window.location.origin}/vote?sessionId=${sid}`;
+  }, [validSid, sid]);
+
+  // cleanup/구독 핸들러를 ref에 보관하여 안전하게 await 처리
+  const unsubscribeRef = useRef<(() => Promise<void>) | null>(null);
+  const cleanupRef = useRef<{
+    handlePageHide?: () => void;
+    handleRouteChange?: () => void;
+    stopSession?: () => Promise<void>;
+  } | null>(null);
+  const eventListenersRegisteredRef = useRef(false);
 
   // 투표 통계 계산
   const voteStats = useMemo(() => {
@@ -110,131 +127,140 @@ export default function SessionStatusPage() {
   );
 
   useEffect(() => {
-    // Router가 준비되지 않았으면 대기
-    if (!router.isReady) {
-      return;
-    }
+    if (!router.isReady) return;
 
-    // sessionId가 유효하지 않으면 에러 처리
-    if (!sid || Number.isNaN(sid)) {
+    if (!validSid) {
       setError('유효하지 않은 세션 ID입니다.');
       setLoading(false);
       return;
     }
 
-    let unsubscribe: (() => void) | undefined;
-    let eventListenersRegistered = false;
+    unsubscribeRef.current = null;
+    eventListenersRegisteredRef.current = false;
+
+    let cancelled = false;
+    setLoading(true);
 
     (async () => {
-      const { data: auth } = await supabase.auth.getUser();
-      const email = auth?.user?.email;
-      if (!email) {
-        setError('로그인이 필요합니다.');
-        setAuthorized(false);
-        setLoading(false);
-        return;
-      }
+      try {
+        const { data: auth } = await supabase.auth.getUser();
+        if (cancelled) return;
+        const email = auth?.user?.email;
+        if (!email) {
+          setError('로그인이 필요합니다.');
+          setAuthorized(false);
+          return; // finally에서 loading false 처리
+        }
 
-      const { data: allow, error: allowErr } = await supabase
-        .from('allowed_users')
-        .select('email,is_faculty')
-        .eq('email', email)
-        .single();
+        const { data: allow, error: allowErr } = await supabase
+          .from('allowed_users')
+          .select('email,is_faculty')
+          .eq('email', email)
+          .single();
+        if (cancelled) return;
+        if (allowErr || !allow?.is_faculty) {
+          setError('접근 권한이 없습니다.');
+          setAuthorized(false);
+          return;
+        }
 
-      if (allowErr || !allow?.is_faculty) {
-        setError('접근 권한이 없습니다.');
-        setAuthorized(false);
-        setLoading(false);
-        return;
-      }
+        setAuthorized(true);
+        await loadSnapshot(); // 내부에서 오류/로딩 처리
+        if (cancelled) return;
 
-      setAuthorized(true);
-      await loadSnapshot();
+        // 진행중으로 세션 상태 업데이트
+        try {
+          const { data: updatedSession } = await supabase
+            .from('sessions')
+            .update({ status: 1 })
+            .eq('id', sid)
+            .select('id,name,status')
+            .single();
+          if (!cancelled && updatedSession) {
+            setSession(updatedSession as SessionRow);
+          }
+        } catch (e) {
+          console.error('세션 상태 업데이트 실패', e);
+        }
 
-      // 페이지 진입 시 세션 상태를 1(진행중)로 설정
-      const { data: updatedSession } = await supabase
-        .from('sessions')
-        .update({ status: 1 })
-        .eq('id', sid)
-        .select('id,name,status')
-        .single();
-
-      if (updatedSession) {
-        setSession(updatedSession as SessionRow);
-      }
-
-      unsubscribe = subscribeRealtime();
-
-      // 초기화가 완료된 후 약간의 지연을 두고 이벤트 리스너 등록
-      setTimeout(() => {
-        // 페이지 나갈 때 세션 상태를 0으로 설정하는 함수
-        const stopSession = async () => {
-          if (sid && !Number.isNaN(sid)) {
+        if (cancelled) return;
+        const unsub = subscribeRealtime();
+        if (unsub) {
+          unsubscribeRef.current = async () => {
             try {
-              await supabase
-                .from('sessions')
-                .update({ status: 0 })
-                .eq('id', sid);
-            } catch (error) {
-              console.error('Failed to stop session:', error);
+              await Promise.resolve(unsub());
+            } catch (e) {
+              console.error('unsubscribe failed', e);
             }
+          };
+        }
+
+        const stopSession = async () => {
+          if (!validSid) return;
+          try {
+            await supabase.from('sessions').update({ status: 0 }).eq('id', sid);
+          } catch (error) {
+            console.error('Failed to stop session:', error);
           }
         };
 
-        // 페이지 숨김/닫기 이벤트 핸들러 (브라우저 탭 닫기, 새로고침 등)
         const handlePageHide = () => {
-          if (sid && !Number.isNaN(sid)) {
+          if (!validSid) return;
+          try {
             const data = new Blob([JSON.stringify({ sessionId: sid })], {
               type: 'application/json',
             });
             navigator.sendBeacon('/api/sessions/stop', data);
+          } catch (e) {
+            console.error('sendBeacon 실패', e);
           }
         };
 
-        // 라우터 변경 이벤트 핸들러 (Next.js 페이지 이동)
         const handleRouteChange = () => {
+          // 비동기 stopSession fire-and-forget
           stopSession();
         };
 
-        // 이벤트 리스너 등록
         window.addEventListener('pagehide', handlePageHide);
         router.events.on('routeChangeStart', handleRouteChange);
-        eventListenersRegistered = true;
-
-        // cleanup을 위해 전역에 함수들 저장
-        (window as any)._sessionCleanupFunctions = {
-          handlePageHide,
-          handleRouteChange,
-          stopSession,
-        };
-      }, 1000); // 1초 후에 이벤트 리스너 등록
+        eventListenersRegisteredRef.current = true;
+        cleanupRef.current = { handlePageHide, handleRouteChange, stopSession };
+      } catch (e: any) {
+        if (!cancelled) {
+          console.error('초기 로딩 실패', e);
+          setError(e?.message || '초기 로딩 중 오류가 발생했습니다.');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
 
     return () => {
+      cancelled = true;
       try {
-        if (unsubscribe) unsubscribe();
-
-        // 이벤트 리스너 제거
-        if (
-          eventListenersRegistered &&
-          (window as any)._sessionCleanupFunctions
-        ) {
-          const { handlePageHide, handleRouteChange, stopSession } = (
-            window as any
-          )._sessionCleanupFunctions;
-          window.removeEventListener('pagehide', handlePageHide);
-          router.events.off('routeChangeStart', handleRouteChange);
-
-          // 컴포넌트 언마운트 시에도 세션 정지
-          stopSession();
-
-          // cleanup 함수들 제거
-          delete (window as any)._sessionCleanupFunctions;
+        if (unsubscribeRef.current) {
+          unsubscribeRef
+            .current()
+            .catch((e) => console.error('unsubscribe error', e));
         }
-      } catch {}
+        if (eventListenersRegisteredRef.current && cleanupRef.current) {
+          const { handlePageHide, handleRouteChange, stopSession } =
+            cleanupRef.current;
+          if (handlePageHide)
+            window.removeEventListener('pagehide', handlePageHide);
+          if (handleRouteChange)
+            router.events.off('routeChangeStart', handleRouteChange);
+          if (stopSession)
+            stopSession().catch((e) => console.error('stopSession error', e));
+          cleanupRef.current = null;
+          eventListenersRegisteredRef.current = false;
+        }
+      } catch (e) {
+        console.error('cleanup error', e);
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sid, router.isReady]);
+  }, [sid, validSid, router.isReady]);
 
   const loadSnapshot = useCallback(async () => {
     try {
@@ -278,7 +304,7 @@ export default function SessionStatusPage() {
 
   const subscribeRealtime = useCallback(() => {
     // sid가 유효하지 않으면 구독하지 않음
-    if (!sid || Number.isNaN(sid)) {
+    if (!validSid) {
       return () => {};
     }
 
@@ -312,7 +338,9 @@ export default function SessionStatusPage() {
     return () => {
       try {
         supabase.removeChannel(channel);
-      } catch {}
+      } catch (e) {
+        console.error('채널 제거 실패', e);
+      }
     };
   }, [sid]);
 
