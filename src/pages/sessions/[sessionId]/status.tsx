@@ -29,12 +29,7 @@ export default function SessionStatusPage() {
   const [votedSet, setVotedSet] = useState<Set<string>>(new Set());
   const [reviews, setReviews] = useState<any[]>([]);
 
-  // 동적으로 생성된 투표 URL (서버 사이드 렌더링 시에는 빈 문자열)
-  const voteUrl = useMemo(() => {
-    if (typeof window === 'undefined') return '';
-    if (!validSid) return '';
-    return `${window.location.origin}/vote?sessionId=${sid}`;
-  }, [validSid, sid]);
+  const voteUrl = `https://peer.1000.school`;
 
   // cleanup/구독 핸들러를 ref에 보관하여 안전하게 await 처리
   const unsubscribeRef = useRef<(() => Promise<void>) | null>(null);
